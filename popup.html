@@ -1,0 +1,88 @@
+<!--
+  Project: BD Job Autofill
+  Module: Popup UI
+  Purpose: Primary interface for selecting a profile, triggering autofill,
+           and navigating to profile/application management views.
+  Author: Lead Engineer
+  Version: 1.0.0
+  Dependencies: popup.css, popup.js
+  Last Updated: 2026-07-06
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BD Job Autofill</title>
+  <link rel="stylesheet" href="popup.css" />
+  <script src="chrome-polyfill.js"></script>
+</head>
+<body>
+  <main class="popup" role="main">
+    <header class="popup__header">
+      <h1 class="popup__title">BD Job Autofill</h1>
+    </header>
+
+    <section class="popup__section" aria-labelledby="profile-heading">
+      <h2 id="profile-heading" class="popup__section-title">Profile</h2>
+      <label class="popup__label" for="profile-select">Active profile</label>
+      <select id="profile-select" class="popup__select" aria-describedby="profile-empty-hint"></select>
+      <p id="profile-empty-hint" class="popup__hint" hidden>No profiles saved yet.</p>
+    </section>
+
+    <section class="popup__section" aria-labelledby="sections-heading">
+      <h2 id="sections-heading" class="popup__section-title">Education sections</h2>
+      <p class="popup__hint">
+        Useful for a 2nd-time autofill: uncheck a section to leave it untouched
+        (e.g. fill Masters only, without overwriting Graduation).
+      </p>
+      <label class="popup__checkbox-row">
+        <input type="checkbox" id="fill-gra-checkbox" checked />
+        <span>Fill Graduation</span>
+      </label>
+      <label class="popup__checkbox-row">
+        <input type="checkbox" id="fill-mas-checkbox" checked />
+        <span>Fill Masters</span>
+      </label>
+    </section>
+
+    <section class="popup__section" aria-labelledby="action-heading">
+      <h2 id="action-heading" class="popup__section-title">Actions</h2>
+      <button id="autofill-btn" class="popup__button popup__button--primary" type="button">
+        Autofill this page
+      </button>
+      <p id="autofill-status" class="popup__status" role="status" aria-live="polite"></p>
+    </section>
+
+    <nav class="popup__nav" aria-label="Manage">
+      <button id="manage-profiles-btn" class="popup__button popup__button--secondary" type="button">
+        Manage Profiles
+      </button>
+      <button id="manage-applications-btn" class="popup__button popup__button--secondary" type="button">
+        Track Applications
+      </button>
+    </nav>
+  </main>
+
+  <!-- Toast Notification Overlay -->
+  <div id="toast" class="toast" aria-hidden="true" hidden>
+    <div class="toast__content">
+      <header class="toast__header">
+        <div class="toast__title-wrapper">
+          <span class="toast__icon">✓</span>
+          <h3 class="toast__title">Autofill Successful!</h3>
+        </div>
+        <button id="toast-close-btn" class="toast__close" type="button" aria-label="Close toast">×</button>
+      </header>
+      <div class="toast__body">
+        <p class="toast__summary">Successfully filled <strong id="toast-count">0</strong> fields:</p>
+        <div id="toast-list" class="toast__list">
+          <!-- Dynamically populated filled fields and values -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

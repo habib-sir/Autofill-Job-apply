@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teletalk Job Application Form (Mock Demo)</title>
+  <style>
+    :root {
+      --color-primary: #15803d;
+      --color-primary-light: #f0fdf4;
+      --color-border: #bbf7d0;
+      --color-text: #1f2937;
+      --color-header-bg: #16a34a;
+      --color-accent-bg: #f9fafb;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f3f4f6;
+      color: var(--color-text);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .form-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    .form-header {
+      background-color: var(--color-header-bg);
+      color: #ffffff;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .form-header h1 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    .form-header p {
+      margin: 0;
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .demo-bar {
+      background-color: #fef08a;
+      color: #854d0e;
+      padding: 10px 15px;
+      font-size: 13px;
+      text-align: center;
+      border-bottom: 1px solid #fef08a;
+      font-weight: 500;
+    }
+
+    .section-title {
+      background-color: var(--color-primary-light);
+      color: var(--color-primary);
+      padding: 10px 15px;
+      margin: 25px 0 15px 0;
+      font-size: 14px;
+      font-weight: 600;
+      border-left: 4px solid var(--color-primary);
+      text-transform: uppercase;
+    }
+
+    .form-grid {
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+
+    .full-width {
+      grid-column: span 2;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      padding: 8px 12px;
+      font-size: 13px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background-color: #ffffff;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+    }
+
+    .address-box {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 15px;
+      background-color: var(--color-accent-bg);
+    }
+
+    .address-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: var(--color-primary);
+    }
+
+    .address-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .education-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 13px;
+    }
+
+    .education-table th, .education-table td {
+      border: 1px solid #e5e7eb;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    .education-table th {
+      background-color: #f9fafb;
+      font-weight: 600;
+    }
+
+    .education-table input, .education-table select {
+      width: 100%;
+      padding: 5px;
+      box-sizing: border-box;
+      font-size: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 3px;
+    }
+
+    .agree-container {
+      padding: 20px;
+      background-color: #fafafa;
+      border-top: 1px solid #eee;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-top: 30px;
+    }
+
+    .agree-container input {
+      margin-top: 4px;
+    }
+
+    .agree-container label {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+
+    .form-actions {
+      padding: 20px;
+      background-color: #f9fafb;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      transition: background-color 0.15s ease;
+    }
+
+    .btn-secondary {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+
+    .btn-secondary:hover {
+      background-color: #d1d5db;
+    }
+
+    .btn-primary {
+      background-color: var(--color-primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background-color: #166534;
+    }
+
+    .autofill-indicator {
+      display: none;
+      background-color: #dcfce7;
+      color: #166534;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin: 15px 20px;
+      font-weight: 500;
+      border: 1px solid #bbf7d0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-container">
+    <div class="demo-bar">
+      💡 <strong>Live Testing Ground</strong> — Try clicking the <strong>"Autofill this page"</strong> button in the sidebar popup on the left!
+    </div>
+
+    <header class="form-header">
+      <h1>MOCK BANGLADESH TELETALK JOB APPLICATION FORM</h1>
+      <p>Compatible with any *.teletalk.com.bd recruitment portal (e.g., bsdb.teletalk.com.bd, all-jobs.teletalk.com.bd, dgfp.teletalk.com.bd)</p>
+    </header>
+
+    <div id="autofill-alert" class="autofill-indicator">
+      🎉 Form filled successfully! Detected and autofilled fields from your active profile.
+    </div>
+
+    <form id="job-form" onsubmit="event.preventDefault(); alert('Fictional Application Submitted successfully!');">
+      
+      <div class="section-title">Personal Information</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="fullName">Candidate's Name (English)</label>
+          <input type="text" name="name" id="fullName" placeholder="Name in English" required>
+        </div>
+
+        <div class="form-group">
+          <label for="nameBn">Candidate's Name (Bangla)</label>
+          <input type="text" name="name_bn" id="nameBn" placeholder="বাংলায় নাম">
+        </div>
+
+        <div class="form-group">
+          <label for="fatherName">Father's Name (English)</label>
+          <input type="text" name="father" id="fatherName" placeholder="Father's name">
+        </div>
+
+        <div class="form-group">
+          <label for="fatherBn">Father's Name (Bangla)</label>
+          <input type="text" name="father_bn" id="fatherBn" placeholder="পিতার নাম">
+        </div>
+
+        <div class="form-group">
+          <label for="motherName">Mother's Name (English)</label>
+          <input type="text" name="mother" id="motherName" placeholder="Mother's name">
+        </div>
+
+        <div class="form-group">
+          <label for="motherBn">Mother's Name (Bangla)</label>
+          <input type="text" name="mother_bn" id="motherBn" placeholder="মাতার নাম">
+        </div>
+
+        <div class="form-group">
+          <label for="dob">Date of Birth</label>
+          <input type="date" name="dob" id="dob">
+        </div>
+
+        <div class="form-group">
+          <label for="gender">Gender</label>
+          <select name="gender" id="gender">
+            <option value="">--Select--</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="religion">Religion</label>
+          <input type="text" name="religion" id="religion" placeholder="Islam, Hinduism, etc.">
+        </div>
+
+        <div class="form-group">
+          <label for="bloodGroup">Blood Group</label>
+          <select name="bloodGroup" id="bloodGroup">
+            <option value="">--Select--</option>
+            <option value="A+">A+</option>
+            <option value="A-">A-</option>
+            <option value="B+">B+</option>
+            <option value="B-">B-</option>
+            <option value="AB+">AB+</option>
+            <option value="AB-">AB-</option>
+            <option value="O+">O+</option>
+            <option value="O-">O-</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="nid_no">National ID No</label>
+          <input type="text" name="nid_no" id="nid_no" placeholder="NID Number">
+        </div>
+
+        <div class="form-group">
+          <label for="breg_no">Birth Registration No</label>
+          <input type="text" name="breg_no" id="breg_no" placeholder="Birth Registration No">
+        </div>
+
+        <div class="form-group">
+          <label for="passport_no">Passport No (if any)</label>
+          <input type="text" name="passport_no" id="passport_no" placeholder="Passport Number">
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" name="email" id="email" placeholder="example@gmail.com">
+        </div>
+
+        <div class="form-group">
+          <label for="mobile">Mobile Number</label>
+          <input type="tel" name="mobile" id="mobile" placeholder="017xxxxxxxx">
+        </div>
+
+        <div class="form-group">
+          <label for="confirm_mobile">Confirm Mobile Number</label>
+          <input type="tel" name="confirm_mobile" id="confirm_mobile" placeholder="017xxxxxxxx">
+        </div>
+
+        <div class="form-group">
+          <label for="marital_status">Marital Status</label>
+          <select name="marital_status" id="marital_status">
+            <option value="">--Select--</option>
+            <option value="Unmarried">Unmarried</option>
+            <option value="Married">Married</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="spouse_name">Spouse Name (if married)</label>
+          <input type="text" name="spouse_name" id="spouse_name" placeholder="Spouse name">
+        </div>
+      </div>
+
+      <div class="section-title">Addresses</div>
+      <div class="form-grid">
+        <div class="address-box">
+          <p class="address-title">Present Address</p>
+          <div class="address-grid">
+            <div class="form-group full-width">
+              <label for="present_careof">Care Of</label>
+              <input type="text" name="present_careof" id="present_careof">
+            </div>
+            <div class="form-group full-width">
+              <label for="present_village">Village / Town / Road</label>
+              <textarea name="present_village" id="present_village" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="present_district">District (ID/Name)</label>
+              <input type="text" name="present_district" id="present_district" placeholder="District">
+            </div>
+            <div class="form-group">
+              <label for="present_upazila">Upazila / P.S.</label>
+              <input type="text" name="present_upazila" id="present_upazila" placeholder="Upazila">
+            </div>
+            <div class="form-group">
+              <label for="present_post">Post Office</label>
+              <input type="text" name="present_post" id="present_post">
+            </div>
+            <div class="form-group">
+              <label for="present_postcode">Post Code</label>
+              <input type="text" name="present_postcode" id="present_postcode">
+            </div>
+          </div>
+        </div>
+
+        <div class="address-box">
+          <p class="address-title">Permanent Address</p>
+          <div class="address-grid">
+            <div class="form-group full-width" style="flex-direction: row; align-items: center; gap: 8px;">
+              <input type="checkbox" name="same_as_present" id="same_as_present">
+              <label for="same_as_present" style="margin: 0;">Same as Present Address</label>
+            </div>
+            <div class="form-group full-width">
+              <label for="permanent_careof">Care Of</label>
+              <input type="text" name="permanent_careof" id="permanent_careof">
+            </div>
+            <div class="form-group full-width">
+              <label for="permanent_village">Village / Town / Road</label>
+              <textarea name="permanent_village" id="permanent_village" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="permanent_district">District (ID/Name)</label>
+              <input type="text" name="permanent_district" id="permanent_district" placeholder="District">
+            </div>
+            <div class="form-group">
+              <label for="permanent_upazila">Upazila / P.S.</label>
+              <input type="text" name="permanent_upazila" id="permanent_upazila" placeholder="Upazila">
+            </div>
+            <div class="form-group">
+              <label for="permanent_post">Post Office</label>
+              <input type="text" name="permanent_post" id="permanent_post">
+            </div>
+            <div class="form-group">
+              <label for="permanent_postcode">Post Code</label>
+              <input type="text" name="permanent_postcode" id="permanent_postcode">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Academic Qualifications</div>
+      <div style="padding: 0 20px;">
+        <table class="education-table">
+          <thead>
+            <tr>
+              <th>Examination</th>
+              <th>Board / University</th>
+              <th>Roll No</th>
+              <th>Result Type & Score</th>
+              <th>Passing Year</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>SSC or Equiv</strong></td>
+              <td><input type="text" name="ssc_board" id="ssc_board" placeholder="Board"></td>
+              <td><input type="text" name="ssc_roll" id="ssc_roll" placeholder="Roll"></td>
+              <td><input type="text" name="ssc_result" id="ssc_result" placeholder="e.g. 5.00"></td>
+              <td><input type="text" name="ssc_year" id="ssc_year" placeholder="Year"></td>
+            </tr>
+            <tr>
+              <td><strong>HSC or Equiv</strong></td>
+              <td><input type="text" name="hsc_board" id="hsc_board" placeholder="Board"></td>
+              <td><input type="text" name="hsc_roll" id="hsc_roll" placeholder="Roll"></td>
+              <td><input type="text" name="hsc_result" id="hsc_result" placeholder="e.g. 5.00"></td>
+              <td><input type="text" name="hsc_year" id="hsc_year" placeholder="Year"></td>
+            </tr>
+            <tr>
+              <td><strong>Graduation</strong></td>
+              <td><input type="text" name="gra_institute" id="gra_institute" placeholder="University"></td>
+              <td><input type="text" name="gra_exam" id="gra_exam" placeholder="Degree (Honours/etc)"></td>
+              <td><input type="text" name="gra_result" id="gra_result" placeholder="CGPA"></td>
+              <td><input type="text" name="gra_year" id="gra_year" placeholder="Year"></td>
+            </tr>
+            <tr>
+              <td><strong>Masters</strong></td>
+              <td><input type="text" name="mas_institute" id="mas_institute" placeholder="University"></td>
+              <td><input type="text" name="mas_exam" id="mas_exam" placeholder="Masters Degree"></td>
+              <td><input type="text" name="mas_result" id="mas_result" placeholder="CGPA"></td>
+              <td><input type="text" name="mas_year" id="mas_year" placeholder="Year"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-title">Other Qualifications &amp; Details</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="experienceComputer">Efficiency in Word, Email, Fax, etc.?</label>
+          <select name="other_exp[0][value]" id="experienceComputer">
+            <option value="">--Select--</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="experienceSatlipi">Computer typing speed of 20 words in Eng &amp; Bangla?</label>
+          <select name="other_exp[1][value]" id="experienceSatlipi">
+            <option value="">--Select--</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="agree-container">
+        <input type="checkbox" name="agree" id="agree" required>
+        <label for="agree">
+          The information provided above is true and correct. I understand that any false statement or omission will result in rejection of my application or termination of service if appointed.
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('job-form').reset(); document.getElementById('autofill-alert').style.display='none';">Reset Form</button>
+        <button type="submit" class="btn btn-primary">Submit Application</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Load Polyfill FIRST, then mappings and content script -->
+  <script src="chrome-polyfill.js"></script>
+  <script src="teletalk-mapping.js"></script>
+  <script src="content-script.js" type="module"></script>
+
+  <script>
+    // Intercept autofill response to show success banner
+    const originalListener = window.chrome.runtime.onMessage.addListener;
+    window.chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message && message.type === 'AUTOFILL_PAGE') {
+        setTimeout(() => {
+          document.getElementById('autofill-alert').style.display = 'block';
+          document.getElementById('autofill-alert').scrollIntoView({ behavior: 'smooth' });
+        }, 300);
+      }
+    });
+  </script>
+</body>
+</html>

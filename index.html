@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BD Job Autofill — Chrome Extension Dashboard</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+  <style>
+    :root {
+      --color-bg: #f8fafc;
+      --color-text-main: #0f172a;
+      --color-text-muted: #475569;
+      --color-border: #e2e8f0;
+      --color-accent: #15803d;
+      --color-accent-light: #f0fdf4;
+      --color-panel-bg: #ffffff;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background-color: var(--color-bg);
+      color: var(--color-text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .app-header {
+      background-color: var(--color-panel-bg);
+      border-bottom: 1px solid var(--color-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background-color: var(--color-accent);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--color-text-main);
+      margin: 0;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--color-text-muted);
+      margin-top: 2px;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-tab {
+      background: none;
+      border: 1px solid transparent;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .nav-tab:hover {
+      background-color: #f1f5f9;
+      color: var(--color-text-main);
+    }
+
+    .nav-tab.active {
+      background-color: var(--color-accent-light);
+      color: var(--color-accent);
+      border-color: var(--color-border);
+    }
+
+    /* Main Workspace */
+    .workspace {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Emulated Chrome Extension Popup */
+    .sidebar-popup {
+      width: 400px;
+      border-right: 1px solid var(--color-border);
+      background-color: #cbd5e1; /* Looks like browser chrome border background */
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .browser-frame {
+      width: 100%;
+      max-width: 360px;
+      background-color: #f1f5f9;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.15), 0 8px 10px -6px rgb(0 0 0 / 0.15);
+      border: 1px solid #94a3b8;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .browser-toolbar {
+      background-color: #e2e8f0;
+      padding: 8px 12px;
+      border-bottom: 1px solid #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .browser-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .browser-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .browser-dot.red { background-color: #ef4444; }
+    .browser-dot.yellow { background-color: #eab308; }
+    .browser-dot.green { background-color: #22c55e; }
+
+    .browser-address {
+      flex: 1;
+      background-color: #ffffff;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      border: 1px solid #cbd5e1;
+      text-align: left;
+      font-family: var(--font-mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .extension-icon-btn {
+      width: 24px;
+      height: 24px;
+      background-color: var(--color-accent);
+      border-radius: 4px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .popup-container-inner {
+      width: 100%;
+      height: 480px;
+      border: none;
+      background-color: #ffffff;
+    }
+
+    /* Right Main Content Pane */
+    .main-pane {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background-color: #ffffff;
+    }
+
+    .iframe-viewport {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background-color: #ffffff;
+    }
+
+    /* Footer Status Bar */
+    .app-footer {
+      background-color: var(--color-panel-bg);
+      border-top: 1px solid var(--color-border);
+      padding: 6px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--color-text-muted);
+      flex-shrink: 0;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--color-accent);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      background-color: var(--color-accent);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.5; }
+      50% { opacity: 1; }
+      100% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-logo">J</div>
+      <div>
+        <h1 class="brand-title">BD Job Autofill</h1>
+        <div class="brand-subtitle">Simulated Chrome Extension Dashboard</div>
+      </div>
+    </div>
+
+    <nav class="nav-tabs" aria-label="Main Navigation">
+      <button id="tab-demo" class="nav-tab active" onclick="switchView('demo-form.html', 'tab-demo')">
+        📝 Live Form Demo
+      </button>
+      <button id="tab-profiles" class="nav-tab" onclick="switchView('profiles.html', 'tab-profiles')">
+        👤 Manage Profiles
+      </button>
+      <button id="tab-applications" class="nav-tab" onclick="switchView('applications.html', 'tab-applications')">
+        💼 Track Applications
+      </button>
+    </nav>
+  </header>
+
+  <!-- Workspace Section -->
+  <div class="workspace">
+    
+    <!-- Left Emulated Extension Popup -->
+    <aside class="sidebar-popup" aria-label="Chrome Extension Window">
+      <div class="browser-frame">
+        <div class="browser-toolbar">
+          <div class="browser-dots">
+            <div class="browser-dot red"></div>
+            <div class="browser-dot yellow"></div>
+            <div class="browser-dot green"></div>
+          </div>
+          <div id="address-bar-text" class="browser-address">http://all-jobs.teletalk.com.bd/apply</div>
+          <button class="extension-icon-btn" title="BD Job Autofill Active Extension">J</button>
+        </div>
+        
+        <!-- Emulated Popup frame -->
+        <iframe id="popup-iframe" src="popup.html" class="popup-container-inner"></iframe>
+      </div>
+    </aside>
+
+    <!-- Right Main Browser Viewport -->
+    <main class="main-pane" aria-label="Simulated Browser Window">
+      <iframe id="content-iframe" src="demo-form.html" class="iframe-viewport"></iframe>
+    </main>
+
+  </div>
+
+  <!-- Status Bar Footer -->
+  <footer class="app-footer">
+    <div class="status-indicator">
+      <div class="status-dot"></div>
+      EXTENSION AUTOMATION ENGINE ACTIVE
+    </div>
+    <div>Database: Persistent LocalStorage</div>
+    <div>Target Domain: <span id="current-target-domain" style="font-family: var(--font-mono);">teletalk.com.bd</span></div>
+  </footer>
+
+  <!-- Central Polyfill initialization -->
+  <script src="chrome-polyfill.js"></script>
+
+  <!-- Run background worker right inside the parent page to bind shared handlers -->
+  <script src="background.js"></script>
+
+  <script>
+    // Find the highest accessible ancestor window in the same origin
+    function getHighestAccessibleWindow() {
+      let curr = window;
+      while (curr.parent && curr.parent !== curr) {
+        try {
+          const test = curr.parent.document;
+          curr = curr.parent;
+        } catch (e) {
+          break;
+        }
+      }
+      return curr;
+    }
+    const sharedWindow = getHighestAccessibleWindow();
+
+    // Wire up top level controls
+    const contentIframe = document.getElementById('content-iframe');
+    const addressBarText = document.getElementById('address-bar-text');
+    const targetDomainText = document.getElementById('current-target-domain');
+
+    // Tab view navigation handler
+    sharedWindow.__chromeNavigateMain = function(url) {
+      if (url.includes('profiles.html')) {
+        switchView('profiles.html', 'tab-profiles');
+      } else if (url.includes('applications.html')) {
+        switchView('applications.html', 'tab-applications');
+      } else {
+        switchView(url, 'tab-demo');
+      }
+    };
+
+    function switchView(url, tabId) {
+      // Update iframe source
+      contentIframe.src = url;
+
+      // Update active tab styles
+      document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById(tabId);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+      }
+
+      // Update simulated browser address bar
+      if (url.includes('demo-form.html')) {
+        addressBarText.textContent = 'http://all-jobs.teletalk.com.bd/apply';
+        targetDomainText.textContent = 'teletalk.com.bd';
+        sharedWindow.__chromeActiveTabUrl = 'http://all-jobs.teletalk.com.bd/apply';
+      } else if (url.includes('profiles.html')) {
+        addressBarText.textContent = 'chrome-extension://bd-autofill/profiles.html';
+        targetDomainText.textContent = 'chrome-extension';
+        sharedWindow.__chromeActiveTabUrl = 'chrome-extension://bd-autofill/profiles.html';
+      } else if (url.includes('applications.html')) {
+        addressBarText.textContent = 'chrome-extension://bd-autofill/applications.html';
+        targetDomainText.textContent = 'chrome-extension';
+        sharedWindow.__chromeActiveTabUrl = 'chrome-extension://bd-autofill/applications.html';
+      } else {
+        addressBarText.textContent = url;
+        targetDomainText.textContent = 'unknown';
+        sharedWindow.__chromeActiveTabUrl = url;
+      }
+
+      // Reload popup frame to ensure it matches fresh page state (e.g. reload options list)
+      const popupIframe = document.getElementById('popup-iframe');
+      if (popupIframe) {
+        popupIframe.contentWindow.location.reload();
+      }
+    }
+
+    // Monitor when the content iframe completes loading to notify chrome polyfill
+    contentIframe.addEventListener('load', () => {
+      sharedWindow.__chromeActiveTabStatus = 'complete';
+      
+      // Auto-inject script or ping
+      try {
+        const popupIframe = document.getElementById('popup-iframe');
+        if (popupIframe && popupIframe.contentWindow && popupIframe.contentWindow.loadProfiles) {
+          popupIframe.contentWindow.loadProfiles();
+        }
+      } catch (e) {
+        // Safe catch for initial/cross-document loads
+      }
+    });
+  </script>
+</body>
+</html>

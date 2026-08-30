@@ -1,0 +1,586 @@
+<!--
+Project: BD Job Autofill
+Module: Profiles Page
+Purpose: Full-page UI for creating, editing, and deleting saved profiles
+         (e.g. self, sister) used as autofill data sources, including
+         Teletalk-specific fields.
+Author: Lead Engineer
+Version: 2.1.0 (Offline CV extraction via vendored PDF.js, with local
+         Tesseract.js OCR fallback for scanned/image-only PDFs — no
+         network, no API key)
+Dependencies: profiles.css, profiles.js, lib/pdfjs/pdf.min.js,
+              lib/pdfjs/pdf.worker.min.js, lib/tesseract/*
+Last Updated: 2026-07-09
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Profiles — BD Job Autofill</title>
+  <link rel="stylesheet" href="profiles.css" />
+  <script src="chrome-polyfill.js"></script>
+  <script src="background.js"></script>
+  <script src="lib/pdfjs/pdf.min.js"></script>
+  <script src="lib/tesseract/tesseract.min.js"></script>
+</head>
+<body>
+  <main class="page" role="main">
+    <header class="page__header">
+      <h1 class="page__title">Manage Profiles</h1>
+      <button id="new-profile-btn" class="button button--primary" type="button">New Profile</button>
+    </header>
+
+    <section class="page__layout">
+      <aside class="profile-list" aria-label="Saved profiles">
+        <ul id="profile-list" class="profile-list__items"></ul>
+        <p id="profile-list-empty" class="profile-list__empty" hidden>No profiles yet. Create one to get started.</p>
+
+        <div class="import-panel" aria-label="Import profile data">
+          <p class="import-panel__title">Start from existing data</p>
+
+          <label class="field import-panel__field">
+            <span class="field__label">Copy from a saved profile</span>
+            <select id="copy-from-profile-select">
+              <option value="">Select a profile…</option>
+            </select>
+          </label>
+          <button type="button" id="copy-from-profile-btn" class="button button--secondary">Copy as New Profile</button>
+
+          <label class="field import-panel__field">
+            <span class="field__label">Or upload a profile JSON file</span>
+            <input type="file" id="import-json-input" accept="application/json,.json" />
+          </label>
+          <button type="button" id="import-json-btn" class="button button--secondary" disabled>Import JSON as New Profile</button>
+
+          <p id="import-status" class="form-status" role="status" aria-live="polite"></p>
+
+          <button type="button" id="export-json-btn" class="button button--secondary import-panel__export" hidden>Download Selected as JSON</button>
+
+          <!-- Sample Profile section -->
+          <hr style="border-top: 1px solid var(--color-border); margin: var(--spacing-md) 0;" />
+          <p class="import-panel__title">Sample Profile</p>
+          <div style="display: flex; gap: var(--spacing-sm); flex-wrap: wrap;">
+            <button type="button" id="load-sample-btn" class="button button--secondary">Load Sample Profile</button>
+            <button type="button" id="show-sample-json-btn" class="button button--secondary">Show Sample JSON</button>
+          </div>
+          <pre id="sample-json-display" style="display:none; background: #f8fafc; padding: var(--spacing-md); border-radius: var(--radius); font-size: 12px; max-height: 300px; overflow: auto; margin-top: var(--spacing-sm);"></pre>
+          <p id="sample-status" class="form-status" role="status" aria-live="polite"></p>
+
+          <!-- CV Import: fully offline, local PDF.js parsing with local
+               Tesseract.js OCR fallback for scanned/image-only PDFs
+               (no network, no API key) -->
+          <hr style="border-top: 1px solid var(--color-border); margin: var(--spacing-md) 0;" />
+          <p class="import-panel__title">Import from CV (PDF, incl. scanned)</p>
+          <div style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+            <label class="field import-panel__field">
+              <span class="field__label">Upload CV (PDF)</span>
+              <input type="file" id="cv-file-input" accept=".pdf" />
+            </label>
+            <div style="display: flex; gap: var(--spacing-md);">
+              <button type="button" id="extract-cv-btn" class="button button--primary" disabled>Extract Data</button>
+            </div>
+            <p id="cv-status" class="form-status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </aside>
+
+      <section class="profile-form-wrapper" aria-label="Profile editor">
+        <form id="profile-form" class="profile-form" novalidate hidden>
+          <input type="hidden" id="profile-id" />
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Basic Information</legend>
+
+            <label class="field">
+              <span class="field__label">Profile Label (e.g. "Me", "Sister")</span>
+              <input type="text" id="field-name" name="name" required autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Full Name (English)</span>
+              <input type="text" id="field-fullName" name="fullName" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Full Name (বাংলা)</span>
+              <input type="text" id="field-nameBn" name="nameBn" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Father's Name (English)</span>
+              <input type="text" id="field-fatherName" name="fatherName" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Father's Name (বাংলা)</span>
+              <input type="text" id="field-fatherBn" name="fatherBn" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Mother's Name (English)</span>
+              <input type="text" id="field-motherName" name="motherName" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Mother's Name (বাংলা)</span>
+              <input type="text" id="field-motherBn" name="motherBn" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Date of Birth</span>
+              <input type="date" id="field-dateOfBirth" name="dateOfBirth" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Gender</span>
+              <select id="field-gender" name="gender">
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Nationality</span>
+              <input type="text" id="field-nationality" name="nationality" autocomplete="off" value="Bangladeshi" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Religion</span>
+              <input type="text" id="field-religion" name="religion" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Marital Status</span>
+              <select id="field-maritalStatus" name="maritalStatus">
+                <option value="">Select</option>
+                <option value="Unmarried">Unmarried</option>
+                <option value="Married">Married</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Spouse Name (if married)</span>
+              <input type="text" id="field-spouseName" name="spouseName" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Blood Group</span>
+              <select id="field-bloodGroup" name="bloodGroup">
+                <option value="">Select</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Identification</legend>
+
+            <label class="field">
+              <span class="field__label">NID Type</span>
+              <select id="field-nidType" name="nidType">
+                <option value="">Select</option>
+                <option value="NID">NID</option>
+                <option value="Online NID Application Slip">Online NID Application Slip</option>
+                <option value="Not Available">Not Available</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">NID Number</span>
+              <input type="text" id="field-nidNo" name="nidNo" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Birth Registration Number</span>
+              <input type="text" id="field-birthRegNo" name="birthRegNo" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Passport Number (optional)</span>
+              <input type="text" id="field-passportNo" name="passportNo" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Contact</legend>
+
+            <label class="field">
+              <span class="field__label">Mobile Number</span>
+              <input type="tel" id="field-mobile" name="mobile" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Confirm Mobile Number</span>
+              <input type="tel" id="field-mobileConfirm" name="mobileConfirm" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Email</span>
+              <input type="email" id="field-email" name="email" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Quota & Department</legend>
+
+            <label class="field">
+              <span class="field__label">Quota</span>
+              <input type="text" id="field-quota" name="quota" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Quota Details</span>
+              <input type="text" id="field-quotaDetails" name="quotaDetails" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Departmental Candidate Status</span>
+              <input type="text" id="field-depStatus" name="depStatus" autocomplete="off" placeholder="e.g. Govt. Employee, Other" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Present Address</legend>
+
+            <label class="field">
+              <span class="field__label">Care Of</span>
+              <input type="text" id="field-presentCareOf" name="presentCareOf" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Village / Road / House</span>
+              <textarea id="field-presentAddress" name="presentAddress" rows="2"></textarea>
+            </label>
+
+            <label class="field">
+              <span class="field__label">District</span>
+              <input type="text" id="field-presentDistrict" name="presentDistrict" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Upazila</span>
+              <input type="text" id="field-presentUpazila" name="presentUpazila" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Post Office</span>
+              <input type="text" id="field-presentPost" name="presentPost" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Post Code</span>
+              <input type="text" id="field-presentPostcode" name="presentPostcode" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Permanent Address</legend>
+
+            <label class="field field--checkbox">
+              <input type="checkbox" id="field-sameAsPresent" name="sameAsPresent" />
+              <span class="field__label">Same as present address</span>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Care Of</span>
+              <input type="text" id="field-permanentCareOf" name="permanentCareOf" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Village / Road / House</span>
+              <textarea id="field-permanentAddress" name="permanentAddress" rows="2"></textarea>
+            </label>
+
+            <label class="field">
+              <span class="field__label">District</span>
+              <input type="text" id="field-permanentDistrict" name="permanentDistrict" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Upazila</span>
+              <input type="text" id="field-permanentUpazila" name="permanentUpazila" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Post Office</span>
+              <input type="text" id="field-permanentPost" name="permanentPost" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Post Code</span>
+              <input type="text" id="field-permanentPostcode" name="permanentPostcode" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Father's Occupation</legend>
+
+            <label class="field">
+              <span class="field__label">Occupation</span>
+              <input type="text" id="field-fatherOccupation" name="fatherOccupation" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>SSC / Equivalent</legend>
+
+            <label class="field">
+              <span class="field__label">Exam</span>
+              <input type="text" id="field-sscExam" name="sscExam" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Roll Number</span>
+              <input type="text" id="field-sscRoll" name="sscRoll" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Group</span>
+              <input type="text" id="field-sscGroup" name="sscGroup" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Group (Other, if applicable)</span>
+              <input type="text" id="field-sscGroupOther" name="sscGroupOther" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Board</span>
+              <input type="text" id="field-sscBoard" name="sscBoard" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Board (Other, if applicable)</span>
+              <input type="text" id="field-sscBoardOther" name="sscBoardOther" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result Type</span>
+              <select id="field-sscResultType" name="sscResultType">
+                <option value="">Select</option>
+                <option value="GPA">GPA</option>
+                <option value="Division">Division</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result (GPA)</span>
+              <input type="text" id="field-sscResult" name="sscResult" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Passing Year</span>
+              <input type="text" id="field-sscYear" name="sscYear" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>HSC / Equivalent</legend>
+
+            <label class="field">
+              <span class="field__label">Exam</span>
+              <input type="text" id="field-hscExam" name="hscExam" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Roll Number</span>
+              <input type="text" id="field-hscRoll" name="hscRoll" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Group</span>
+              <input type="text" id="field-hscGroup" name="hscGroup" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Group (Other, if applicable)</span>
+              <input type="text" id="field-hscGroupOther" name="hscGroupOther" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Board</span>
+              <input type="text" id="field-hscBoard" name="hscBoard" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Board (Other, if applicable)</span>
+              <input type="text" id="field-hscBoardOther" name="hscBoardOther" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result Type</span>
+              <select id="field-hscResultType" name="hscResultType">
+                <option value="">Select</option>
+                <option value="GPA">GPA</option>
+                <option value="Division">Division</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result (GPA)</span>
+              <input type="text" id="field-hscResult" name="hscResult" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Passing Year</span>
+              <input type="text" id="field-hscYear" name="hscYear" autocomplete="off" />
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Graduation / Equivalent Level</legend>
+
+            <label class="field">
+              <span class="field__label">Examination</span>
+              <input type="text" id="field-graExam" name="graExam" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">University / Institution</span>
+              <input type="text" id="field-graInstitute" name="graInstitute" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Subject / Degree</span>
+              <input type="text" id="field-graSubject" name="graSubject" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result Type</span>
+              <input type="text" id="field-graResultType" name="graResultType" autocomplete="off" placeholder="e.g., CGPA(out of 4)" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result (GPA/CGPA)</span>
+              <input type="text" id="field-graResult" name="graResult" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Passing Year</span>
+              <input type="text" id="field-graYear" name="graYear" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Course Duration</span>
+              <input type="text" id="field-graDuration" name="graDuration" autocomplete="off" placeholder="e.g., 04" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">If Applicable (check to mark Graduation as completed on the application form)</span>
+              <input type="text" id="field-bachelor" name="bachelor" autocomplete="off" placeholder="e.g., Yes, or leave blank if not applicable" />
+            </label>
+          </fieldset>
+
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Masters / Equivalent Level</legend>
+
+            <label class="field">
+              <span class="field__label">Examination</span>
+              <input type="text" id="field-masExam" name="masExam" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">University / Institution</span>
+              <input type="text" id="field-masInstitute" name="masInstitute" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Subject / Degree</span>
+              <input type="text" id="field-masSubject" name="masSubject" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result Type</span>
+              <input type="text" id="field-masResultType" name="masResultType" autocomplete="off" placeholder="e.g., CGPA(out of 4)" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Result (GPA/CGPA)</span>
+              <input type="text" id="field-masResult" name="masResult" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Passing Year</span>
+              <input type="text" id="field-masYear" name="masYear" autocomplete="off" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Course Duration</span>
+              <input type="text" id="field-masDuration" name="masDuration" autocomplete="off" placeholder="e.g., 01" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">If Applicable (check to mark Masters as completed on the application form)</span>
+              <input type="text" id="field-master" name="master" autocomplete="off" placeholder="e.g., Yes, or leave blank if not applicable" />
+            </label>
+          </fieldset>
+
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Other Qualifications &amp; Experiences</legend>
+
+            <label class="field">
+              <span class="field__label">
+                Do you have efficiencies and experience in Word Processing, Email on Computer, operating Fax machine, etc.?
+              </span>
+              <select id="field-experienceComputer" name="experienceComputer">
+                <option value="">Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span class="field__label">
+                Do you have minimum computer typing speed of 20 words in English and 20 words in Bangla per minute?
+              </span>
+              <select id="field-experienceSatlipi" name="experienceSatlipi">
+                <option value="">Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+          </fieldset>
+
+          <fieldset class="profile-form__fieldset">
+            <legend>Custom Profile Fields</legend>
+            <div style="grid-column: span 2; display: flex; flex-direction: column; gap: var(--spacing-sm);">
+              <p style="font-size: 13px; color: var(--color-text-muted); margin: 0 0 var(--spacing-xs) 0; line-height: 1.4;">
+                Define custom fields to match unmapped or portal-specific inputs. Keys are case-insensitive and matched against the form element's name, ID, placeholder, or label.
+              </p>
+              <div id="custom-fields-container" style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                <!-- Dynamically populated via javascript -->
+              </div>
+              <button type="button" id="add-custom-field-btn" class="button button--secondary" style="margin-top: var(--spacing-xs); width: fit-content; padding: var(--spacing-sm) var(--spacing-md);">
+                + Add Custom Field
+              </button>
+            </div>
+          </fieldset>
+
+          <div class="profile-form__actions">
+            <button type="submit" class="button button--primary">Save Profile</button>
+            <button type="button" id="delete-profile-btn" class="button button--danger">Delete Profile</button>
+          </div>
+
+          <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+
+        <p id="form-empty-hint" class="form-empty-hint">Select a profile or create a new one to begin editing.</p>
+      </section>
+    </section>
+  </main>
+
+  <script src="profiles.js" type="module"></script>
+</body>
+</html>

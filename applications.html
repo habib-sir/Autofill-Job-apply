@@ -1,0 +1,106 @@
+<!--
+  Project: BD Job Autofill
+  Module: Applications Page
+  Purpose: Full-page UI for tracking job applications, deadlines, and status.
+  Author: Lead Engineer
+  Version: 1.0.0
+  Dependencies: applications.css, applications.js
+  Last Updated: 2026-07-06
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application Tracker — BD Job Autofill</title>
+  <link rel="stylesheet" href="applications.css" />
+  <script src="chrome-polyfill.js"></script>
+  <script src="background.js"></script>
+</head>
+<body>
+  <main class="page" role="main">
+    <header class="page__header">
+      <h1 class="page__title">Application Tracker</h1>
+      <button id="new-application-btn" class="button button--primary" type="button">New Application</button>
+    </header>
+
+    <section class="page__layout">
+      <section class="application-table-wrapper" aria-label="Applications">
+        <table class="application-table">
+          <thead>
+            <tr>
+              <th scope="col">Organization</th>
+              <th scope="col">Position</th>
+              <th scope="col">Applicant</th>
+              <th scope="col">Deadline</th>
+              <th scope="col">Status</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="application-table-body"></tbody>
+        </table>
+        <p id="application-table-empty" class="application-table__empty" hidden>No applications tracked yet.</p>
+      </section>
+
+      <section class="application-form-wrapper" aria-label="Application editor">
+        <form id="application-form" class="application-form" novalidate hidden>
+          <input type="hidden" id="app-id" />
+
+          <label class="field">
+            <span class="field__label">Organization</span>
+            <input type="text" id="app-organization" name="organization" required autocomplete="off" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Position</span>
+            <input type="text" id="app-position" name="position" autocomplete="off" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Applicant</span>
+            <select id="app-profileId" name="profileId"></select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Application URL</span>
+            <input type="url" id="app-url" name="url" autocomplete="off" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Deadline</span>
+            <input type="date" id="app-deadline" name="deadline" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Status</span>
+            <select id="app-status" name="status">
+              <option value="planned">Planned</option>
+              <option value="applied">Applied</option>
+              <option value="admit_card">Admit Card</option>
+              <option value="exam">Exam</option>
+              <option value="result">Result</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Notes</span>
+            <textarea id="app-notes" name="notes" rows="3"></textarea>
+          </label>
+
+          <div class="application-form__actions">
+            <button type="submit" class="button button--primary">Save Application</button>
+            <button type="button" id="delete-application-btn" class="button button--danger">Delete</button>
+          </div>
+
+          <p id="application-form-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+
+        <p id="application-form-empty-hint" class="form-empty-hint">Select an application or create a new one.</p>
+      </section>
+    </section>
+  </main>
+
+  <script src="applications.js" type="module"></script>
+</body>
+</html>

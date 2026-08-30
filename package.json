@@ -1,0 +1,15 @@
+{
+  "name": "bd-job-autofill",
+  "version": "1.0.1",
+  "description": "Autofill Bangladeshi job application forms (Teletalk-style) from saved profiles.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'No build step required'",
+    "lint": "echo 'No lint step required'"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

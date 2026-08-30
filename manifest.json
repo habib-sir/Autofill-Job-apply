@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "BD Job Autofill",
+  "version": "1.1.0",
+  "description": "Autofill Bangladeshi job application forms (Teletalk-style) from saved profiles.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/pdfjs/pdf.worker.min.js",
+        "lib/tesseract/worker.min.js",
+        "lib/tesseract/tesseract-core-lstm.wasm.js",
+        "lib/tesseract/tesseract-core-lstm.wasm",
+        "lib/tesseract/lang-data/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*"],
+      "js": ["teletalk-mapping.js", "content-script.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
