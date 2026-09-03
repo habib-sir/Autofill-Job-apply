@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0284c7" />
+  <title>BD Job SMS Gateway - Mobile Companion</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding-bottom: 40px;
+    }
+
+    .app-header {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      padding: 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-logo {
+      width: 36px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .app-title {
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .app-subtitle {
+      font-size: 11px;
+      opacity: 0.9;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #4ade80;
+    }
+
+    .status-dot.offline {
+      background-color: #f87171;
+    }
+
+    .container {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .job-card {
+      border: 2px solid var(--primary);
+      background: #f0f9ff;
+      animation: pulse-border 2s infinite;
+    }
+
+    @keyframes pulse-border {
+      0% { border-color: #0284c7; }
+      50% { border-color: #38bdf8; }
+      100% { border-color: #0284c7; }
+    }
+
+    .job-tag {
+      display: inline-block;
+      background: #0284c7;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .job-recipient {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .job-body-box {
+      background: #ffffff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: #0369a1;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+      word-break: break-all;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    .btn-primary:active {
+      background: #0369a1;
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: #ffffff;
+      margin-top: 8px;
+    }
+    .btn-success:active {
+      background: #15803d;
+    }
+
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #334155;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .empty-state-icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .paste-textarea {
+      width: 100%;
+      height: 80px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      margin-bottom: 10px;
+    }
+
+    .paste-textarea:focus {
+      outline: 2px solid var(--primary);
+      border-color: transparent;
+    }
+
+    .device-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .device-info-item {
+      background: #f1f5f9;
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+
+    .device-info-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+
+    .device-info-val {
+      font-weight: 600;
+    }
+
+    .toast-popup {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+      z-index: 100;
+      display: none;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="app-brand">
+      <div class="app-logo">📱</div>
+      <div>
+        <h1 class="app-title">BD Job SMS Gateway</h1>
+        <div class="app-subtitle">Teletalk Fee Sender &amp; Sync</div>
+      </div>
+    </div>
+    <div id="connection-badge" class="status-badge">
+      <div id="connection-dot" class="status-dot"></div>
+      <span id="connection-text">Connecting...</span>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Active Job Waiting to be Sent -->
+    <section id="active-jobs-container">
+      <div class="card">
+        <h2 class="card-title">
+          <span>⚡</span> Pending SMS to Send
+        </h2>
+        <div id="pending-jobs-list">
+          <div class="empty-state">
+            <span class="empty-state-icon">📡</span>
+            <p>Waiting for SMS jobs from your Chrome extension...</p>
+            <p style="font-size: 12px; margin-top: 4px; color: #94a3b8;">When you click "Send SMS" in the extension, it will appear here instantly.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sync Incoming 16222 SMS Back to Extension -->
+    <section class="card">
+      <h2 class="card-title">
+        <span>📥</span> Sync Incoming 16222 Reply
+      </h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+        When Teletalk replies with your <strong>PIN</strong> or <strong>Password</strong>, sync it to your extension with 1 tap:
+      </p>
+
+      <textarea id="incoming-sms-input" class="paste-textarea" placeholder="Paste incoming SMS from 16222 here (contains PIN or Password)..."></textarea>
+      
+      <div style="display: flex; gap: 8px;">
+        <button id="paste-clipboard-btn" class="btn btn-secondary" style="flex: 1; padding: 10px;">
+          <span>📋</span> Paste Clipboard
+        </button>
+        <button id="send-incoming-btn" class="btn btn-primary" style="flex: 1.5; padding: 10px;">
+          <span>🚀</span> Sync to Extension
+        </button>
+      </div>
+
+      <!-- Quick simulation shortcuts for convenience -->
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border);">
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600;">TEST SIMULATION BUTTONS:</div>
+        <div style="display: flex; gap: 6px;">
+          <button id="demo-pin-sms-btn" class="btn btn-secondary" style="font-size: 11px; padding: 6px 8px;">
+            Simulate 1st Reply (PIN)
+          </button>
+          <button id="demo-pass-sms-btn" class="btn btn-secondary" style="font-size: 11px; padding: 6px 8px;">
+            Simulate 2nd Reply (Password)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Device Connection Status -->
+    <section class="card">
+      <h2 class="card-title">
+        <span>📶</span> Phone Connection Details
+      </h2>
+      <div class="device-info-grid">
+        <div class="device-info-item">
+          <div class="device-info-label">Device Name</div>
+          <div id="dev-name" class="device-info-val">Android Device</div>
+        </div>
+        <div class="device-info-item">
+          <div class="device-info-label">Active SIM</div>
+          <div id="dev-sim" class="device-info-val">Teletalk 4G</div>
+        </div>
+        <div class="device-info-item">
+          <div class="device-info-label">Pairing Token</div>
+          <div id="dev-token" class="device-info-val">--</div>
+        </div>
+        <div class="device-info-item">
+          <div class="device-info-label">Heartbeat Ping</div>
+          <div id="dev-ping" class="device-info-val">Active</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px;">
+        <button id="reconnect-btn" class="btn btn-secondary" style="padding: 10px; font-size: 13px;">
+          🔄 Reconnect to Extension
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast-popup"></div>
+
+  <script src="mobile-sms-bridge.js"></script>
+</body>
+</html>

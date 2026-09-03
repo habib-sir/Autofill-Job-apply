@@ -94,7 +94,8 @@ async function handleDeleteProfile(profileId) {
 
   const activeId = await storageGet(STORAGE_KEYS.ACTIVE_PROFILE_ID);
   if (activeId === profileId) {
-    await storageSet(STORAGE_KEYS.ACTIVE_PROFILE_ID, null);
+    const nextActive = filtered.length > 0 ? filtered[0].id : null;
+    await storageSet(STORAGE_KEYS.ACTIVE_PROFILE_ID, nextActive);
   }
   return filtered;
 }

@@ -15,6 +15,12 @@ const autofillBtn = document.getElementById('autofill-btn');
 const autofillStatus = document.getElementById('autofill-status');
 const manageProfilesBtn = document.getElementById('manage-profiles-btn');
 const manageApplicationsBtn = document.getElementById('manage-applications-btn');
+const phoneSmsBtn = document.getElementById('phone-sms-btn');
+const deletePopupProfileBtn = document.getElementById('delete-popup-profile-btn');
+const popupDeleteConfirmBox = document.getElementById('popup-delete-confirm-box');
+const popupDeleteName = document.getElementById('popup-delete-name');
+const popupDeleteConfirmBtn = document.getElementById('popup-delete-confirm-btn');
+const popupDeleteCancelBtn = document.getElementById('popup-delete-cancel-btn');
 const fillGraCheckbox = document.getElementById('fill-gra-checkbox');
 const fillMasCheckbox = document.getElementById('fill-mas-checkbox');
 
@@ -454,10 +460,61 @@ function openApplicationsPage() {
   chrome.tabs.create({ url: chrome.runtime.getURL('applications.html') });
 }
 
+/**
+ * Opens the phone SMS sync & fee payment page in a new tab.
+ * @returns {void}
+ */
+function openSmsSyncPage() {
+  chrome.tabs.create({ url: chrome.runtime.getURL('sms-sync.html') });
+}
+
+/**
+ * Shows the delete confirmation banner for the currently selected profile.
+ */
+function handleShowDeletePopup() {
+  const selectedId = profileSelect.value;
+  if (!selectedId) return;
+  const selectedText = profileSelect.options[profileSelect.selectedIndex] ? profileSelect.options[profileSelect.selectedIndex].text : 'this profile';
+  popupDeleteName.textContent = `"${selectedText}"`;
+  popupDeleteConfirmBox.style.display = 'block';
+}
+
+/**
+ * Hides the delete confirmation banner.
+ */
+function handleCancelDeletePopup() {
+  popupDeleteConfirmBox.style.display = 'none';
+}
+
+/**
+ * Executes deletion of the active profile from the popup.
+ */
+async function handleConfirmDeletePopup() {
+  const selectedId = profileSelect.value;
+  if (!selectedId) {
+    handleCancelDeletePopup();
+    return;
+  }
+
+  try {
+    await sendMessage('DELETE_PROFILE', selectedId);
+    popupDeleteConfirmBox.style.display = 'none';
+    setStatus('Profile removed.', 'success');
+    await loadProfiles();
+  } catch (err) {
+    popupDeleteConfirmBox.style.display = 'none';
+    setStatus(err.message, 'error');
+  }
+}
+
 if (profileSelect) profileSelect.addEventListener('change', handleProfileChange);
 if (autofillBtn) autofillBtn.addEventListener('click', handleAutofillClick);
 if (manageProfilesBtn) manageProfilesBtn.addEventListener('click', openProfilesPage);
 if (manageApplicationsBtn) manageApplicationsBtn.addEventListener('click', openApplicationsPage);
+if (phoneSmsBtn) phoneSmsBtn.addEventListener('click', openSmsSyncPage);
+if (deletePopupProfileBtn) deletePopupProfileBtn.addEventListener('click', handleShowDeletePopup);
+if (popupDeleteCancelBtn) popupDeleteCancelBtn.addEventListener('click', handleCancelDeletePopup);
+if (popupDeleteConfirmBtn) popupDeleteConfirmBtn.addEventListener('click', handleConfirmDeletePopup);
 if (fillGraCheckbox) fillGraCheckbox.addEventListener('change', saveSectionPrefs);
 if (fillMasCheckbox) fillMasCheckbox.addEventListener('change', saveSectionPrefs);
 

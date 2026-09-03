@@ -89,6 +89,19 @@ Last Updated: 2026-07-09
         <form id="profile-form" class="profile-form" novalidate hidden>
           <input type="hidden" id="profile-id" />
 
+          <div class="profile-editor-topbar" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: var(--spacing-md); border-bottom: 1px solid var(--color-border); margin-bottom: var(--spacing-md);">
+            <div>
+              <h2 id="editor-heading" style="margin: 0; font-size: 18px; font-weight: 700; color: var(--color-text);">Edit Profile</h2>
+              <span id="editor-subheading" style="font-size: 12px; color: var(--color-text-muted);">Manage or remove this profile</span>
+            </div>
+            <div style="display: flex; gap: var(--spacing-sm);">
+              <button type="submit" class="button button--primary" style="padding: 8px 16px;">Save Profile</button>
+              <button type="button" id="delete-profile-top-btn" class="button button--danger" style="padding: 8px 16px; display: flex; align-items: center; gap: 6px;">
+                <span>🗑️</span> Delete Profile
+              </button>
+            </div>
+          </div>
+
           <fieldset class="profile-form__fieldset">
             <legend>Basic Information</legend>
 
@@ -579,6 +592,22 @@ Last Updated: 2026-07-09
         <p id="form-empty-hint" class="form-empty-hint">Select a profile or create a new one to begin editing.</p>
       </section>
     </section>
+
+    <!-- In-app Delete Confirmation Modal (works reliably in sandboxed iframes) -->
+    <div id="delete-modal" class="confirm-modal-overlay" hidden>
+      <div class="confirm-modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h3 id="modal-title" class="confirm-modal-title">
+          <span>⚠️</span> Delete Profile
+        </h3>
+        <p id="modal-body" class="confirm-modal-body">
+          Are you sure you want to delete profile <strong id="modal-profile-name"></strong>? This will permanently remove it from your saved profiles.
+        </p>
+        <div class="confirm-modal-actions">
+          <button type="button" id="modal-cancel-btn" class="button button--secondary">Cancel</button>
+          <button type="button" id="modal-confirm-btn" class="button button--danger">Yes, Delete Profile</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="profiles.js" type="module"></script>

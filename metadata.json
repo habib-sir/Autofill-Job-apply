@@ -1,6 +1,6 @@
 {
   "name": "BD Job Autofill",
-  "description": "Autofill Bangladeshi job application forms (Teletalk-style) from saved profiles.",
+  "description": "Autofill Bangladeshi job application forms (Teletalk-style) from saved profiles with mobile phone SMS sync for fee payments.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

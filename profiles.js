@@ -96,6 +96,12 @@ const formEmptyHintEl = document.getElementById('form-empty-hint');
 const formStatusEl = document.getElementById('form-status');
 const newProfileBtn = document.getElementById('new-profile-btn');
 const deleteProfileBtn = document.getElementById('delete-profile-btn');
+const deleteProfileTopBtn = document.getElementById('delete-profile-top-btn');
+const editorHeadingEl = document.getElementById('editor-heading');
+const deleteModalEl = document.getElementById('delete-modal');
+const modalProfileNameEl = document.getElementById('modal-profile-name');
+const modalCancelBtn = document.getElementById('modal-cancel-btn');
+const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 const profileIdInput = document.getElementById('profile-id');
 const copyFromProfileSelect = document.getElementById('copy-from-profile-select');
 const copyFromProfileBtn = document.getElementById('copy-from-profile-btn');
@@ -166,6 +172,63 @@ function setImportStatus(message, tone) {
   }
 }
 
+let profilePendingDeletionId = null;
+
+/**
+ * Opens the in-app confirmation modal to delete a profile safely.
+ * @param {string} profileId
+ * @param {string} [profileName]
+ */
+function promptDeleteProfile(profileId, profileName) {
+  if (!profileId) return;
+  profilePendingDeletionId = profileId;
+  const targetProfile = profiles.find((p) => p.id === profileId);
+  const name = profileName || (targetProfile && targetProfile.name) || 'Unnamed profile';
+
+  if (modalProfileNameEl) {
+    modalProfileNameEl.textContent = `"${name}"`;
+  }
+  if (deleteModalEl) {
+    deleteModalEl.hidden = false;
+  }
+}
+
+/**
+ * Closes the delete confirmation modal.
+ */
+function closeDeleteModal() {
+  profilePendingDeletionId = null;
+  if (deleteModalEl) {
+    deleteModalEl.hidden = true;
+  }
+}
+
+/**
+ * Confirms and executes profile deletion via message API without using window.confirm.
+ */
+async function confirmDeleteProfile() {
+  const idToDelete = profilePendingDeletionId || selectedProfileId;
+  if (!idToDelete) {
+    closeDeleteModal();
+    return;
+  }
+
+  try {
+    profiles = await sendMessage('DELETE_PROFILE', idToDelete);
+    if (selectedProfileId === idToDelete) {
+      selectedProfileId = null;
+      profileFormEl.hidden = true;
+      formEmptyHintEl.hidden = false;
+    }
+    closeDeleteModal();
+    setFormStatus('Profile removed successfully.', 'success');
+    renderProfileList();
+  } catch (error) {
+    closeDeleteModal();
+    setFormStatus(error.message, 'error');
+  }
+}
+
 /**
  * Renders the profile list sidebar based on current profiles array.
  */
@@ -180,17 +243,30 @@ function renderProfileList() {
     for (const profile of profiles) {
       const li = document.createElement('li');
       li.className = 'profile-list__item';
+      if (profile.id === selectedProfileId) {
+        li.classList.add('profile-list__item--active');
+      }
 
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'profile-list__button';
-      if (profile.id === selectedProfileId) {
-        button.classList.add('profile-list__button--active');
-      }
       button.textContent = profile.name || 'Unnamed profile';
+      button.title = profile.fullName ? `${profile.name} (${profile.fullName})` : (profile.name || '');
       button.addEventListener('click', () => selectProfile(profile.id));
-
       li.appendChild(button);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'profile-list__delete-btn';
+      delBtn.title = `Delete profile "${profile.name || 'Unnamed'}"`;
+      delBtn.setAttribute('aria-label', `Delete profile ${profile.name || 'Unnamed'}`);
+      delBtn.innerHTML = '🗑️';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        promptDeleteProfile(profile.id, profile.name);
+      });
+      li.appendChild(delBtn);
+
       profileListEl.appendChild(li);
     }
   }
@@ -310,7 +386,9 @@ function selectProfile(profileId) {
   selectedProfileId = profileId;
   formEmptyHintEl.hidden = true;
   profileFormEl.hidden = false;
-  deleteProfileBtn.hidden = false;
+  if (deleteProfileBtn) deleteProfileBtn.hidden = false;
+  if (deleteProfileTopBtn) deleteProfileTopBtn.hidden = false;
+  if (editorHeadingEl) editorHeadingEl.textContent = `Edit Profile: ${profile.name || 'Unnamed'}`;
   setFormStatus('', '');
   populateForm(profile);
   renderProfileList();
@@ -323,7 +401,9 @@ function startNewProfile() {
   selectedProfileId = null;
   formEmptyHintEl.hidden = true;
   profileFormEl.hidden = false;
-  deleteProfileBtn.hidden = true;
+  if (deleteProfileBtn) deleteProfileBtn.hidden = true;
+  if (deleteProfileTopBtn) deleteProfileTopBtn.hidden = true;
+  if (editorHeadingEl) editorHeadingEl.textContent = 'Create New Profile';
   setFormStatus('', '');
   populateForm({ id: '' });
   renderProfileList();
@@ -350,34 +430,23 @@ async function handleFormSubmit(event) {
     selectedProfileId = data.id;
     setFormStatus('Profile saved.', 'success');
     renderProfileList();
-    deleteProfileBtn.hidden = false;
+    if (deleteProfileBtn) deleteProfileBtn.hidden = false;
+    if (deleteProfileTopBtn) deleteProfileTopBtn.hidden = false;
+    if (editorHeadingEl) editorHeadingEl.textContent = `Edit Profile: ${data.name || 'Unnamed'}`;
   } catch (error) {
     setFormStatus(error.message, 'error');
   }
 }
 
 /**
- * Handles delete button click: confirms and removes the selected profile.
+ * Handles delete button click: confirms and removes the selected profile using in-app modal.
  */
-async function handleDeleteClick() {
+function handleDeleteClick() {
   if (!selectedProfileId) {
     return;
   }
-
-  const confirmed = window.confirm('Delete this profile? This cannot be undone.');
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    profiles = await sendMessage('DELETE_PROFILE', selectedProfileId);
-    selectedProfileId = null;
-    profileFormEl.hidden = true;
-    formEmptyHintEl.hidden = false;
-    renderProfileList();
-  } catch (error) {
-    setFormStatus(error.message, 'error');
-  }
+  const current = profiles.find((p) => p.id === selectedProfileId);
+  promptDeleteProfile(selectedProfileId, current ? current.name : '');
 }
 
 /**
@@ -576,6 +645,16 @@ async function initialize() {
 if (newProfileBtn) newProfileBtn.addEventListener('click', startNewProfile);
 if (profileFormEl) profileFormEl.addEventListener('submit', handleFormSubmit);
 if (deleteProfileBtn) deleteProfileBtn.addEventListener('click', handleDeleteClick);
+if (deleteProfileTopBtn) deleteProfileTopBtn.addEventListener('click', handleDeleteClick);
+if (modalCancelBtn) modalCancelBtn.addEventListener('click', closeDeleteModal);
+if (modalConfirmBtn) modalConfirmBtn.addEventListener('click', confirmDeleteProfile);
+if (deleteModalEl) {
+  deleteModalEl.addEventListener('click', (e) => {
+    if (e.target === deleteModalEl) {
+      closeDeleteModal();
+    }
+  });
+}
 const sameAsPresentCheckbox = document.getElementById('field-sameAsPresent');
 if (sameAsPresentCheckbox) {
   sameAsPresentCheckbox.addEventListener('change', handleSameAsPresentChange);

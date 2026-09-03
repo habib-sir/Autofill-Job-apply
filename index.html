@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BD Job Autofill — Chrome Extension Dashboard</title>
+  <title>BD Job Autofill</title>
+  <meta name="description" content="Autofill Bangladeshi job application forms (Teletalk-style) from saved profiles.">
+  <meta property="og:title" content="BD Job Autofill">
+  <meta property="og:description" content="Autofill Bangladeshi job application forms (Teletalk-style) from saved profiles.">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
   <style>
     :root {
@@ -275,6 +278,9 @@
       <button id="tab-applications" class="nav-tab" onclick="switchView('applications.html', 'tab-applications')">
         💼 Track Applications
       </button>
+      <button id="tab-sms" class="nav-tab" onclick="switchView('sms-sync.html', 'tab-sms')" style="color: #0284c7; font-weight: 600;">
+        📱 Phone SMS Sync
+      </button>
     </nav>
   </header>
 
@@ -349,6 +355,8 @@
         switchView('profiles.html', 'tab-profiles');
       } else if (url.includes('applications.html')) {
         switchView('applications.html', 'tab-applications');
+      } else if (url.includes('sms-sync.html')) {
+        switchView('sms-sync.html', 'tab-sms');
       } else {
         switchView(url, 'tab-demo');
       }
@@ -378,6 +386,10 @@
         addressBarText.textContent = 'chrome-extension://bd-autofill/applications.html';
         targetDomainText.textContent = 'chrome-extension';
         sharedWindow.__chromeActiveTabUrl = 'chrome-extension://bd-autofill/applications.html';
+      } else if (url.includes('sms-sync.html')) {
+        addressBarText.textContent = 'chrome-extension://bd-autofill/sms-sync.html';
+        targetDomainText.textContent = 'sms-gateway';
+        sharedWindow.__chromeActiveTabUrl = 'chrome-extension://bd-autofill/sms-sync.html';
       } else {
         addressBarText.textContent = url;
         targetDomainText.textContent = 'unknown';

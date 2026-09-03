@@ -24,7 +24,19 @@
     </header>
 
     <section class="popup__section" aria-labelledby="profile-heading">
-      <h2 id="profile-heading" class="popup__section-title">Profile</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 id="profile-heading" class="popup__section-title">Profile</h2>
+        <button id="delete-popup-profile-btn" type="button" title="Delete active profile" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; font-size: 11px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; transition: background 0.15s;">
+          <span>🗑️</span> Remove
+        </button>
+      </div>
+      <div id="popup-delete-confirm-box" style="display: none; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 8px 10px; margin: 6px 0; font-size: 12px; color: #9f1239;">
+        <div style="margin-bottom: 6px;">Delete <strong id="popup-delete-name"></strong>?</div>
+        <div style="display: flex; gap: 6px;">
+          <button id="popup-delete-confirm-btn" type="button" style="background: #e11d48; color: #fff; border: none; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer;">Yes, Delete</button>
+          <button id="popup-delete-cancel-btn" type="button" style="background: #fff; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer;">Cancel</button>
+        </div>
+      </div>
       <label class="popup__label" for="profile-select">Active profile</label>
       <select id="profile-select" class="popup__select" aria-describedby="profile-empty-hint"></select>
       <p id="profile-empty-hint" class="popup__hint" hidden>No profiles saved yet.</p>
@@ -60,6 +72,9 @@
       </button>
       <button id="manage-applications-btn" class="popup__button popup__button--secondary" type="button">
         Track Applications
+      </button>
+      <button id="phone-sms-btn" class="popup__button popup__button--secondary" type="button" style="border-color: #86efac; background: #f0fdf4; color: #166534;">
+        📱 Phone SMS Sync
       </button>
     </nav>
   </main>

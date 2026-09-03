@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teletalk SMS Gateway &amp; Fee Payment Sync - BD Job Autofill</title>
+  <link rel="stylesheet" href="sms-sync.css" />
+</head>
+<body>
+  <div class="sms-page">
+
+    <!-- Page Header -->
+    <header class="sms-header">
+      <div>
+        <h1 class="sms-header__title">
+          <span>📱</span> Teletalk SMS Gateway &amp; Fee Payment Sync
+        </h1>
+        <p class="sms-header__subtitle">
+          Send job application fee SMS to 16222 directly through your mobile phone's Teletalk SIM without manual typing.
+        </p>
+      </div>
+      <div>
+        <button id="refresh-state-btn" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">
+          <span>🔄</span> Refresh Status
+        </button>
+      </div>
+    </header>
+
+    <div class="sms-layout">
+
+      <!-- LEFT COLUMN: Main Controls & Assistant -->
+      <div class="sms-layout-left">
+
+        <!-- Phone Pairing Status Card -->
+        <section class="card phone-pairing-card" id="pairing-card">
+          <div class="card-title">
+            <div class="card-title-left">
+              <span>📶</span>
+              <span>Linked Mobile Device</span>
+            </div>
+            <span id="gateway-status-badge" class="step-badge">Checking...</span>
+          </div>
+
+          <!-- Connected View -->
+          <div id="device-connected-view" class="pairing-connected" style="display: none;">
+            <div class="pairing-device-info">
+              <div class="device-avatar">📱</div>
+              <div>
+                <div class="device-name" id="connected-device-name">Android Device</div>
+                <div class="device-sub">
+                  SIM: <span id="connected-sim">Teletalk 4G</span> &bull; 
+                  Battery: <span id="connected-battery">90%</span> &bull; 
+                  <span class="pulse-dot"></span> <span id="connected-lastseen">Active</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <button id="unpair-device-btn" class="btn btn-danger-link" type="button">
+                Unlink Phone
+              </button>
+            </div>
+          </div>
+
+          <!-- Disconnected / Scan QR View -->
+          <div id="device-disconnected-view" class="pairing-disconnected">
+            <div class="qr-box">
+              <img id="qr-code-image" src="" alt="Pairing QR Code" />
+            </div>
+            <div class="pairing-steps">
+              <strong>Pair Your Android Phone (Teletalk SIM):</strong>
+              <ol>
+                <li>Open camera or QR scanner on your phone.</li>
+                <li>Scan the QR code to open the <strong>Mobile SMS Companion</strong>.</li>
+                <li>Your phone will instantly link as the active SMS sender!</li>
+              </ol>
+              <div style="margin-top: 10px; display: flex; gap: 8px;">
+                <a id="direct-mobile-link" href="#" target="_blank" class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;">
+                  🔗 Open Companion in New Tab
+                </a>
+                <span id="pairing-token-display" style="font-size: 11px; font-family: monospace; align-self: center; color: var(--color-text-muted);">
+                  Token: ...
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Teletalk 2-Step SMS Fee Assistant -->
+        <section class="card">
+          <div class="card-title">
+            <div class="card-title-left">
+              <span>💳</span>
+              <span>Teletalk Application Fee 2-Step SMS Assistant</span>
+            </div>
+            <span style="font-size: 12px; font-weight: 500; color: var(--color-text-muted);">Recipient: <strong>16222</strong></span>
+          </div>
+
+          <!-- Application Selection / Input -->
+          <div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+            <div class="form-grid">
+              <div>
+                <label class="input-label" for="select-saved-app">Load from Saved Application:</label>
+                <select id="select-saved-app" class="input-field">
+                  <option value="">-- Choose an application or enter manually --</option>
+                </select>
+              </div>
+              <div>
+                <label class="input-label" for="org-code-input">Organization Code (e.g. BPSC, BSDB, DPE):</label>
+                <input type="text" id="org-code-input" class="input-field" placeholder="BPSC" value="BPSC" style="text-transform: uppercase;" />
+              </div>
+              <div>
+                <label class="input-label" for="user-id-input">Applicant User ID (from Applicant's Copy):</label>
+                <input type="text" id="user-id-input" class="input-field" placeholder="e.g. 7A8B9C" value="7A8B9C" style="text-transform: uppercase; font-family: monospace;" />
+              </div>
+              <div>
+                <label class="input-label" for="applicant-name-input">Applicant Name (Optional):</label>
+                <input type="text" id="applicant-name-input" class="input-field" placeholder="MD HABIBUR RAHMAN" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Wizard Steps -->
+          <div class="wizard-steps">
+
+            <!-- Step 1: Send 1st SMS -->
+            <div id="step-1-card" class="wizard-step wizard-step--active">
+              <div class="step-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="step-badge">STEP 1</span>
+                  <h3 class="step-title">Send 1st Application SMS</h3>
+                </div>
+                <span id="step-1-status" style="font-size: 12px; color: var(--color-text-muted);">Ready to send</span>
+              </div>
+              
+              <div class="step-content">
+                <div class="sms-preview-box">
+                  <div>
+                    <span style="color: var(--color-text-muted); margin-right: 8px;">SMS:</span>
+                    <span id="step-1-preview-text" class="sms-text-bold">BPSC 7A8B9C</span>
+                  </div>
+                  <span class="sms-recipient-pill">To: 16222</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 12px; color: var(--color-text-muted);">
+                    Transmits from your phone via Teletalk SIM to 16222.
+                  </span>
+                  <button id="send-step-1-btn" class="btn btn-primary" type="button">
+                    <span>📲</span> Send 1st SMS via Phone
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2: Auto PIN Detection & Send 2nd SMS -->
+            <div id="step-2-card" class="wizard-step">
+              <div class="step-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="step-badge">STEP 2</span>
+                  <h3 class="step-title">PIN Auto-Detection &amp; 2nd Confirmation SMS</h3>
+                </div>
+                <span id="step-2-status" style="font-size: 12px; color: var(--color-text-muted);">Waiting for 16222 reply</span>
+              </div>
+
+              <div class="step-content">
+                <div id="pin-detected-box" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #065f46;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <strong>✅ Teletalk 16222 Reply Detected!</strong>
+                    <span id="detected-fee" style="font-weight: 700; color: #047857;">Fee: Tk. 220</span>
+                  </div>
+                  <div>Applicant: <span id="detected-name">MD HABIBUR RAHMAN</span> &bull; Extracted PIN: <strong id="detected-pin" style="font-family: monospace; font-size: 15px; color: #065f46;">--</strong></div>
+                </div>
+
+                <div class="sms-preview-box">
+                  <div>
+                    <span style="color: var(--color-text-muted); margin-right: 8px;">Confirmation SMS:</span>
+                    <span id="step-2-preview-text" class="sms-text-bold">BPSC YES [PIN]</span>
+                  </div>
+                  <span class="sms-recipient-pill">To: 16222</span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <label for="manual-pin-input" style="font-size: 12px; color: var(--color-text-muted);">Override PIN:</label>
+                    <input type="text" id="manual-pin-input" placeholder="87654321" style="width: 90px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--color-border); border-radius: 4px;" />
+                  </div>
+                  <button id="send-step-2-btn" class="btn btn-success" type="button" disabled>
+                    <span>📲</span> Send 2nd Confirmation SMS via Phone
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Final Password Confirmation -->
+            <div id="step-3-card" class="wizard-step">
+              <div class="step-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="step-badge">STEP 3</span>
+                  <h3 class="step-title">Final Payment Password Confirmation</h3>
+                </div>
+                <span id="step-3-status" style="font-size: 12px; color: var(--color-text-muted);">Awaiting payment confirmation</span>
+              </div>
+
+              <div class="step-content">
+                <div id="password-confirmed-box" style="display: none; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 12px 14px; font-size: 13px; color: #1e40af;">
+                  <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">🎉 Fee Payment Completed Successfully!</div>
+                  <div style="font-size: 13px;">User ID: <strong id="final-user-id" style="font-family: monospace;">--</strong> &bull; Generated Password: <strong id="final-password" style="font-family: monospace; font-size: 16px; color: #1d4ed8; background: #dbeafe; padding: 2px 6px; border-radius: 4px;">--</strong></div>
+                  <div style="margin-top: 10px;">
+                    <button id="save-to-applications-btn" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;">
+                      💾 Save Credentials to Application Tracker
+                    </button>
+                  </div>
+                </div>
+                <p id="password-await-hint" style="font-size: 13px; color: var(--color-text-muted); margin: 0;">
+                  Once you send the 2nd confirmation SMS, Teletalk will reply with your application password. It will appear here automatically.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Quick Custom SMS Composer -->
+        <section class="card">
+          <div class="card-title">
+            <div class="card-title-left">
+              <span>✉️</span>
+              <span>Quick Custom SMS Composer</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; gap: 10px;">
+              <div style="width: 140px;">
+                <label class="input-label" for="custom-recipient">Recipient Number:</label>
+                <input type="text" id="custom-recipient" class="input-field" value="16222" />
+              </div>
+              <div style="flex: 1;">
+                <label class="input-label" for="custom-body">Message Body:</label>
+                <input type="text" id="custom-body" class="input-field" placeholder="e.g. BPSC HELP" />
+              </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+              <button id="send-custom-sms-btn" class="btn btn-primary" type="button">
+                <span>🚀</span> Queue to Phone
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- RIGHT COLUMN: Message Log & Gateway Setup Guide -->
+      <div class="sms-layout-right">
+
+        <!-- Live 16222 SMS Conversation Log -->
+        <section class="card">
+          <div class="card-title">
+            <div class="card-title-left">
+              <span>💬</span>
+              <span>Live SMS Activity &amp; 16222 Feed</span>
+            </div>
+            <span style="font-size: 11px; color: var(--color-text-muted);">Auto-refreshes</span>
+          </div>
+
+          <!-- Simulation Quick Testing Buttons -->
+          <div style="background: #f1f5f9; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px;">
+            <div style="font-weight: 600; color: var(--color-text); margin-bottom: 6px;">
+              🧪 Instant Simulator (Test Without Real SMS):
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button id="simulate-pin-reply-btn" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;">
+                + Simulate 16222 PIN Reply
+              </button>
+              <button id="simulate-pass-reply-btn" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;">
+                + Simulate 16222 Password Reply
+              </button>
+            </div>
+          </div>
+
+          <!-- Messages Stream -->
+          <div id="sms-feed-container" class="sms-thread-container">
+            <div style="text-align: center; color: var(--color-text-muted); font-size: 13px; padding: 20px;">
+              Loading SMS history...
+            </div>
+          </div>
+        </section>
+
+        <!-- Setup Options Guide -->
+        <section class="card">
+          <div class="card-title">
+            <div class="card-title-left">
+              <span>⚙️</span>
+              <span>How Phone SMS Sync Works</span>
+            </div>
+          </div>
+
+          <div style="font-size: 13px; color: var(--color-text); display: flex; flex-direction: column; gap: 14px;">
+            <div>
+              <strong style="color: var(--color-primary);">Method 1: Instant Mobile Web Companion (No APK)</strong>
+              <p style="margin: 4px 0 0 0; color: var(--color-text-muted); line-height: 1.4;">
+                Simply scan the QR code with your Android phone's camera. When you click "Send SMS" in the extension, the companion rings/vibrates on your phone and opens the pre-filled SMS in your default Messages app. Tap send on your Teletalk SIM!
+              </p>
+            </div>
+
+            <div style="border-top: 1px solid var(--color-border); padding-top: 10px;">
+              <strong style="color: #16a34a;">Method 2: Android SMS Gateway APK (100% Silent Background)</strong>
+              <p style="margin: 4px 0 0 0; color: var(--color-text-muted); line-height: 1.4;">
+                Install the free, open-source <em>Android SMS Gateway</em> APK. It listens to the extension's REST webhook and automatically sends SMS from your Teletalk SIM and syncs replies completely in the background without needing to tap your screen!
+              </p>
+            </div>
+
+            <div style="border-top: 1px solid var(--color-border); padding-top: 10px;">
+              <strong style="color: #d97706;">Method 3: MacroDroid / Automate (Play Store)</strong>
+              <p style="margin: 4px 0 0 0; color: var(--color-text-muted); line-height: 1.4;">
+                Use MacroDroid to trigger on incoming SMS from 16222 and forward the payload to <code>/api/sms/incoming</code> via HTTP POST.
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script src="chrome-polyfill.js"></script>
+  <script src="sms-sync.js"></script>
+</body>
+</html>

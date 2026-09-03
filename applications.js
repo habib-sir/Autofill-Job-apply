@@ -189,6 +189,18 @@ function renderApplicationTable() {
     statusBadge.className = `status-badge status-badge--${application.status}`;
     statusBadge.textContent = STATUS_LABELS[application.status] || application.status;
     statusCell.appendChild(statusBadge);
+
+    if (application.feeStatus) {
+      const feeBadge = document.createElement('span');
+      feeBadge.style.display = 'block';
+      feeBadge.style.fontSize = '11px';
+      feeBadge.style.marginTop = '4px';
+      feeBadge.style.fontWeight = '600';
+      feeBadge.style.color = application.feeStatus === 'Paid' ? '#16a34a' : '#d97706';
+      feeBadge.textContent = `Fee: ${application.feeStatus}`;
+      statusCell.appendChild(feeBadge);
+    }
+
     row.appendChild(statusCell);
 
     const actionsCell = document.createElement('td');
@@ -198,6 +210,18 @@ function renderApplicationTable() {
     editButton.textContent = 'Edit';
     editButton.addEventListener('click', () => selectApplication(application.id));
     actionsCell.appendChild(editButton);
+
+    const smsButton = document.createElement('button');
+    smsButton.type = 'button';
+    smsButton.className = 'application-table__row-button';
+    smsButton.style.color = '#0284c7';
+    smsButton.style.marginLeft = '8px';
+    smsButton.textContent = '📱 Fee SMS';
+    smsButton.addEventListener('click', () => {
+      window.location.href = 'sms-sync.html';
+    });
+    actionsCell.appendChild(smsButton);
+
     row.appendChild(actionsCell);
 
     tableBodyEl.appendChild(row);
@@ -215,6 +239,9 @@ function populateForm(application) {
   document.getElementById('app-url').value = application.url || '';
   document.getElementById('app-deadline').value = application.deadline || '';
   document.getElementById('app-status').value = application.status || 'planned';
+  document.getElementById('app-userId').value = application.userId || '';
+  document.getElementById('app-feeStatus').value = application.feeStatus || 'Unpaid';
+  document.getElementById('app-password').value = application.password || '';
   document.getElementById('app-notes').value = application.notes || '';
 
   if (application.profileId && profiles.some((p) => p.id === application.profileId)) {
@@ -237,6 +264,9 @@ function readFormData() {
     url: document.getElementById('app-url').value.trim(),
     deadline: document.getElementById('app-deadline').value,
     status: document.getElementById('app-status').value,
+    userId: (document.getElementById('app-userId').value || '').trim().toUpperCase(),
+    feeStatus: document.getElementById('app-feeStatus').value,
+    password: (document.getElementById('app-password').value || '').trim(),
     notes: document.getElementById('app-notes').value.trim()
   };
 }
