@@ -15,12 +15,18 @@ let currentDetectedPin = '';
 let currentDetectedPassword = '';
 
 // DOM Elements
-const qrCodeImage = document.getElementById('qr-code-image');
+const qrCodeRender = document.getElementById('qr-code-render');
+const qrCodeBox = document.getElementById('qr-code-box');
 const directMobileLink = document.getElementById('direct-mobile-link');
+const copyMobileLinkBtn = document.getElementById('copy-mobile-link-btn');
+const pairingTokenCode = document.getElementById('pairing-token-code');
+const copyTokenBtn = document.getElementById('copy-token-btn');
+const refreshQrBtn = document.getElementById('refresh-qr-btn');
 const pairingTokenDisplay = document.getElementById('pairing-token-display');
 const deviceConnectedView = document.getElementById('device-connected-view');
 const deviceDisconnectedView = document.getElementById('device-disconnected-view');
 const gatewayStatusBadge = document.getElementById('gateway-status-badge');
+const toggleQrModalBtn = document.getElementById('toggle-qr-modal-btn');
 
 const connectedDeviceName = document.getElementById('connected-device-name');
 const connectedSim = document.getElementById('connected-sim');
@@ -140,19 +146,98 @@ selectSavedApp.addEventListener('change', () => {
 });
 
 /**
- * Fetch QR Code for mobile pairing
+ * Render QR Code graphic safely (SVG or Canvas via QRCodeLib)
  */
-async function loadQrCode() {
+function renderQrCodeGraphic(url) {
+  if (!qrCodeRender) return;
+
+  if (typeof QRCodeLib !== 'undefined') {
+    try {
+      QRCodeLib.toString(url, {
+        type: 'svg',
+        width: 140,
+        margin: 1,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff'
+        }
+      }, (err, svgString) => {
+        if (!err && svgString) {
+          qrCodeRender.innerHTML = svgString;
+          return;
+        }
+        renderQrToCanvas(url, qrCodeRender);
+      });
+      return;
+    } catch (e) {
+      renderQrToCanvas(url, qrCodeRender);
+      return;
+    }
+  }
+
+  qrCodeRender.innerHTML = `
+    <div style="font-size:11px; text-align:center; padding:10px; color:#475569;">
+      <a href="${url}" target="_blank" style="color:#0284c7; font-weight:600; text-decoration:underline;">Open Companion</a>
+    </div>
+  `;
+}
+
+function renderQrToCanvas(url, container) {
+  if (typeof QRCodeLib !== 'undefined') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 140;
+    canvas.height = 140;
+    QRCodeLib.toCanvas(canvas, url, { margin: 1, width: 140 }, (err) => {
+      if (!err) {
+        container.innerHTML = '';
+        container.appendChild(canvas);
+      }
+    });
+  }
+}
+
+/**
+ * Fetch or generate QR Code for mobile pairing
+ */
+async function loadQrCode(forceNew = false) {
+  let token = bridgeState.pairingToken || localStorage.getItem('bd_job_pairing_token');
+  if (!token || forceNew) {
+    token = 'BT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    bridgeState.pairingToken = token;
+  }
+  localStorage.setItem('bd_job_pairing_token', token);
+
+  const fallbackUrl = `${window.location.origin}/mobile-sms-bridge.html?token=${token}`;
+
+  if (pairingTokenCode) pairingTokenCode.textContent = token;
+  if (pairingTokenDisplay) pairingTokenDisplay.textContent = 'Token: ' + token;
+  if (directMobileLink) directMobileLink.href = fallbackUrl;
+
+  // Render immediately so QR code is never blank
+  renderQrCodeGraphic(fallbackUrl);
+
   try {
-    const res = await fetch('/api/sms/qr');
+    const endpoint = forceNew ? '/api/sms/reset-token' : '/api/sms/qr';
+    const res = await fetch(endpoint, { method: forceNew ? 'POST' : 'GET' });
     const data = await res.json();
     if (data.ok) {
-      qrCodeImage.src = data.qrDataUrl;
-      directMobileLink.href = data.pairingUrl;
-      pairingTokenDisplay.textContent = 'Token: ' + data.pairingToken;
+      bridgeState.pairingToken = data.pairingToken;
+      localStorage.setItem('bd_job_pairing_token', data.pairingToken);
+
+      if (pairingTokenCode) pairingTokenCode.textContent = data.pairingToken;
+      if (pairingTokenDisplay) pairingTokenDisplay.textContent = 'Token: ' + data.pairingToken;
+      if (directMobileLink) directMobileLink.href = data.pairingUrl;
+
+      if (data.qrSvg && qrCodeRender) {
+        qrCodeRender.innerHTML = data.qrSvg;
+      } else if (data.qrDataUrl && qrCodeRender) {
+        qrCodeRender.innerHTML = `<img src="${data.qrDataUrl}" alt="Pairing QR Code" style="width:100%;height:100%;display:block;" />`;
+      } else {
+        renderQrCodeGraphic(data.pairingUrl);
+      }
     }
   } catch (err) {
-    console.error('Error fetching QR code:', err);
+    console.warn('Network request for server QR code failed, using client QR:', err);
   }
 }
 
@@ -525,6 +610,70 @@ simulatePassReplyBtn.addEventListener('click', async () => {
     alert(e.message);
   }
 });
+
+/**
+ * Refresh QR Code / New Pairing Token
+ */
+if (refreshQrBtn) {
+  refreshQrBtn.addEventListener('click', () => {
+    loadQrCode(true);
+  });
+}
+
+/**
+ * Copy Pairing Code
+ */
+if (copyTokenBtn) {
+  copyTokenBtn.addEventListener('click', async () => {
+    const code = pairingTokenCode ? pairingTokenCode.textContent.trim() : bridgeState.pairingToken;
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      const originalText = copyTokenBtn.innerHTML;
+      copyTokenBtn.innerHTML = '✅ Copied!';
+      setTimeout(() => {
+        copyTokenBtn.innerHTML = originalText;
+      }, 2000);
+    } catch (e) {
+      alert('Pairing Code: ' + code);
+    }
+  });
+}
+
+/**
+ * Copy Mobile Companion Link
+ */
+if (copyMobileLinkBtn) {
+  copyMobileLinkBtn.addEventListener('click', async () => {
+    const link = directMobileLink ? directMobileLink.href : window.location.origin + '/mobile-sms-bridge.html?token=' + bridgeState.pairingToken;
+    try {
+      await navigator.clipboard.writeText(link);
+      const originalText = copyMobileLinkBtn.innerHTML;
+      copyMobileLinkBtn.innerHTML = '✅ Copied!';
+      setTimeout(() => {
+        copyMobileLinkBtn.innerHTML = originalText;
+      }, 2000);
+    } catch (e) {
+      alert('Link: ' + link);
+    }
+  });
+}
+
+/**
+ * Toggle QR view when phone is connected
+ */
+if (toggleQrModalBtn) {
+  toggleQrModalBtn.addEventListener('click', () => {
+    if (deviceDisconnectedView) {
+      const isHidden = window.getComputedStyle(deviceDisconnectedView).display === 'none';
+      deviceDisconnectedView.style.display = isHidden ? 'flex' : 'none';
+      toggleQrModalBtn.textContent = isHidden ? 'Hide QR Code' : 'Show QR Code';
+      if (isHidden) {
+        loadQrCode(false);
+      }
+    }
+  });
+}
 
 /**
  * Unpair device

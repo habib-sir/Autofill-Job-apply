@@ -290,6 +290,17 @@
 
   <main class="container">
 
+    <!-- Pairing Token Bar / Manual Entry -->
+    <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+        <span style="font-size: 13px; font-weight: 600; color: #475569;">Pairing Token:</span>
+        <input id="token-input" type="text" placeholder="BT-XXXXXX" style="font-family: monospace; font-size: 14px; font-weight: 700; max-width: 120px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; text-transform: uppercase; color: #0284c7;" />
+      </div>
+      <button id="update-token-btn" class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px; white-space: nowrap;">
+        🔗 Link Code
+      </button>
+    </div>
+
     <!-- Active Job Waiting to be Sent -->
     <section id="active-jobs-container">
       <div class="card">

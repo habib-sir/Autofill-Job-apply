@@ -54,30 +54,54 @@
                 </div>
               </div>
             </div>
-            <div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button id="toggle-qr-modal-btn" class="btn btn-secondary" type="button" style="font-size: 11px; padding: 5px 10px;">
+                Show QR Code
+              </button>
               <button id="unpair-device-btn" class="btn btn-danger-link" type="button">
                 Unlink Phone
               </button>
             </div>
           </div>
 
-          <!-- Disconnected / Scan QR View -->
+          <!-- Pairing / Scan QR View -->
           <div id="device-disconnected-view" class="pairing-disconnected">
-            <div class="qr-box">
-              <img id="qr-code-image" src="" alt="Pairing QR Code" />
+            <div class="qr-col">
+              <div id="qr-code-box" class="qr-box" title="Scan with Android Camera or QR App">
+                <div id="qr-code-render" class="qr-code-render">
+                  <div class="qr-loading">Generating QR Code...</div>
+                </div>
+              </div>
+              <button id="refresh-qr-btn" class="btn btn-secondary btn-qr-refresh" type="button">
+                🔄 Refresh Code
+              </button>
             </div>
+
             <div class="pairing-steps">
-              <strong>Pair Your Android Phone (Teletalk SIM):</strong>
-              <ol>
-                <li>Open camera or QR scanner on your phone.</li>
-                <li>Scan the QR code to open the <strong>Mobile SMS Companion</strong>.</li>
-                <li>Your phone will instantly link as the active SMS sender!</li>
+              <div class="pairing-headline">Pair Android Phone (Teletalk SIM)</div>
+              
+              <div class="pairing-code-banner">
+                <span class="pairing-code-label">Pairing Code:</span>
+                <code id="pairing-token-code" class="pairing-code-val">------</code>
+                <button id="copy-token-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 3px 8px;">
+                  📋 Copy Code
+                </button>
+              </div>
+
+              <ol class="pairing-instructions">
+                <li>Scan the QR code with your Android phone's camera, OR</li>
+                <li>Open the Companion link on your phone & enter the pairing code.</li>
+                <li>Your phone links immediately to send SMS fees via Teletalk.</li>
               </ol>
-              <div style="margin-top: 10px; display: flex; gap: 8px;">
-                <a id="direct-mobile-link" href="#" target="_blank" class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;">
-                  🔗 Open Companion in New Tab
+
+              <div class="pairing-action-row">
+                <a id="direct-mobile-link" href="#" target="_blank" class="btn btn-primary" style="font-size: 11px; padding: 6px 12px;">
+                  📱 Open Companion Page
                 </a>
-                <span id="pairing-token-display" style="font-size: 11px; font-family: monospace; align-self: center; color: var(--color-text-muted);">
+                <button id="copy-mobile-link-btn" class="btn btn-secondary" style="font-size: 11px; padding: 6px 12px;" type="button">
+                  📋 Copy Link
+                </button>
+                <span id="pairing-token-display" style="font-size: 11px; font-family: monospace; color: var(--color-text-muted); display: none;">
                   Token: ...
                 </span>
               </div>
@@ -325,6 +349,7 @@
   </div>
 
   <script src="chrome-polyfill.js"></script>
+  <script src="qrcode.min.js"></script>
   <script src="sms-sync.js"></script>
 </body>
 </html>

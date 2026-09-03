@@ -143,48 +143,130 @@ body {
 
 .pairing-disconnected {
   display: flex;
-  gap: 20px;
-  align-items: center;
+  gap: 22px;
+  align-items: flex-start;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .pairing-disconnected {
     flex-direction: column;
+    align-items: center;
     text-align: center;
   }
 }
 
-.qr-box {
-  width: 140px;
-  height: 140px;
-  background: #ffffff;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 6px;
+.qr-col {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-.qr-box img {
-  width: 100%;
-  height: 100%;
+.qr-box {
+  width: 156px;
+  height: 156px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.qr-code-render {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-code-render svg,
+.qr-code-render canvas,
+.qr-code-render img {
+  width: 100% !important;
+  height: 100% !important;
   display: block;
+}
+
+.qr-loading {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 10px;
+}
+
+.btn-qr-refresh {
+  font-size: 11px;
+  padding: 4px 8px;
+  color: var(--color-text-muted);
+}
+
+.btn-qr-refresh:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
 }
 
 .pairing-steps {
   font-size: 13px;
   color: var(--color-text);
+  flex: 1;
 }
 
-.pairing-steps ol {
-  margin: 8px 0 0 18px;
+.pairing-headline {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-text);
+  margin-bottom: 8px;
+}
+
+.pairing-code-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-bottom: 10px;
+}
+
+.pairing-code-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.pairing-code-val {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: #0369a1;
+  background: #e0f2fe;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pairing-instructions {
+  margin: 6px 0 12px 18px;
   padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.pairing-steps li {
-  margin-bottom: 6px;
+.pairing-instructions li {
+  margin-bottom: 4px;
+}
+
+.pairing-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 /* Step Wizard */

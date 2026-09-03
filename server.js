@@ -127,15 +127,27 @@ app.get('/api/sms/state', (req, res) => {
 // API: Generate QR Code for Phone pairing
 app.get('/api/sms/qr', async (req, res) => {
   try {
-    const host = req.get('host') || `localhost:${PORT}`;
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const forwardedHost = req.get('x-forwarded-host');
+    const forwardedProto = req.get('x-forwarded-proto');
+    const host = forwardedHost || req.get('host') || `localhost:${PORT}`;
+    const protocol = forwardedProto || (req.protocol === 'https' ? 'https' : 'http');
     const pairingUrl = `${protocol}://${host}/mobile-sms-bridge.html?token=${state.pairingToken}`;
 
-    const qrDataUrl = await QRCode.toDataURL(pairingUrl, {
-      width: 280,
-      margin: 2,
+    const qrSvg = await QRCode.toString(pairingUrl, {
+      type: 'svg',
+      width: 260,
+      margin: 1,
       color: {
-        dark: '#1e293b',
+        dark: '#0f172a',
+        light: '#ffffff'
+      }
+    });
+
+    const qrDataUrl = await QRCode.toDataURL(pairingUrl, {
+      width: 260,
+      margin: 1,
+      color: {
+        dark: '#0f172a',
         light: '#ffffff'
       }
     });
@@ -144,11 +156,40 @@ app.get('/api/sms/qr', async (req, res) => {
       ok: true,
       pairingUrl,
       pairingToken: state.pairingToken,
+      qrSvg,
       qrDataUrl
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+// API: Regenerate pairing token
+app.post('/api/sms/reset-token', async (req, res) => {
+  state.pairingToken = 'BT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+  state.pairedDevice = null;
+  saveState();
+
+  const forwardedHost = req.get('x-forwarded-host');
+  const forwardedProto = req.get('x-forwarded-proto');
+  const host = forwardedHost || req.get('host') || `localhost:${PORT}`;
+  const protocol = forwardedProto || (req.protocol === 'https' ? 'https' : 'http');
+  const pairingUrl = `${protocol}://${host}/mobile-sms-bridge.html?token=${state.pairingToken}`;
+
+  let qrSvg = '';
+  let qrDataUrl = '';
+  try {
+    qrSvg = await QRCode.toString(pairingUrl, { type: 'svg', width: 260, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } });
+    qrDataUrl = await QRCode.toDataURL(pairingUrl, { width: 260, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } });
+  } catch (e) {}
+
+  res.json({
+    ok: true,
+    pairingToken: state.pairingToken,
+    pairingUrl,
+    qrSvg,
+    qrDataUrl
+  });
 });
 
 // API: Mobile Phone pairs or heartbeats

@@ -44,6 +44,29 @@ document.getElementById('dev-name').textContent = deviceState.deviceName;
 document.getElementById('dev-sim').textContent = deviceState.simCarrier;
 document.getElementById('dev-token').textContent = token;
 
+const tokenInputEl = document.getElementById('token-input');
+const updateTokenBtn = document.getElementById('update-token-btn');
+
+if (tokenInputEl) {
+  tokenInputEl.value = token;
+}
+
+if (updateTokenBtn) {
+  updateTokenBtn.addEventListener('click', () => {
+    const newVal = (tokenInputEl ? tokenInputEl.value : '').trim().toUpperCase();
+    if (!newVal) {
+      showToast('Please enter a pairing code');
+      return;
+    }
+    deviceState.token = newVal;
+    localStorage.setItem('bd_job_sms_token', newVal);
+    document.getElementById('dev-token').textContent = newVal;
+    showToast('Linking with code: ' + newVal);
+    registerDevice();
+    pollJobs();
+  });
+}
+
 function showToast(message) {
   if (!toastEl) return;
   toastEl.textContent = message;
