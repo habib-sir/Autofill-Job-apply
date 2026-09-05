@@ -102,6 +102,7 @@ const deleteModalEl = document.getElementById('delete-modal');
 const modalProfileNameEl = document.getElementById('modal-profile-name');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
 const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+const modalCloseXBtn = document.getElementById('modal-close-x-btn');
 const profileIdInput = document.getElementById('profile-id');
 const copyFromProfileSelect = document.getElementById('copy-from-profile-select');
 const copyFromProfileBtn = document.getElementById('copy-from-profile-btn');
@@ -190,6 +191,8 @@ function promptDeleteProfile(profileId, profileName) {
   }
   if (deleteModalEl) {
     deleteModalEl.hidden = false;
+    deleteModalEl.classList.remove('is-hidden');
+    deleteModalEl.style.display = 'flex';
   }
 }
 
@@ -200,6 +203,8 @@ function closeDeleteModal() {
   profilePendingDeletionId = null;
   if (deleteModalEl) {
     deleteModalEl.hidden = true;
+    deleteModalEl.classList.add('is-hidden');
+    deleteModalEl.style.display = 'none';
   }
 }
 
@@ -632,9 +637,13 @@ function addCustomFieldRow(key = '', value = '') {
  * @returns {Promise<void>}
  */
 async function initialize() {
+  closeDeleteModal();
   try {
     profiles = await sendMessage('GET_PROFILES');
     renderProfileList();
+    if (!profiles || profiles.length === 0) {
+      startNewProfile();
+    }
   } catch (error) {
     setFormStatus(error.message, 'error');
   }
@@ -646,8 +655,27 @@ if (newProfileBtn) newProfileBtn.addEventListener('click', startNewProfile);
 if (profileFormEl) profileFormEl.addEventListener('submit', handleFormSubmit);
 if (deleteProfileBtn) deleteProfileBtn.addEventListener('click', handleDeleteClick);
 if (deleteProfileTopBtn) deleteProfileTopBtn.addEventListener('click', handleDeleteClick);
-if (modalCancelBtn) modalCancelBtn.addEventListener('click', closeDeleteModal);
-if (modalConfirmBtn) modalConfirmBtn.addEventListener('click', confirmDeleteProfile);
+if (modalCancelBtn) {
+  modalCancelBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeDeleteModal();
+  });
+}
+if (modalCloseXBtn) {
+  modalCloseXBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeDeleteModal();
+  });
+}
+if (modalConfirmBtn) {
+  modalConfirmBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    confirmDeleteProfile();
+  });
+}
 if (deleteModalEl) {
   deleteModalEl.addEventListener('click', (e) => {
     if (e.target === deleteModalEl) {
@@ -655,6 +683,11 @@ if (deleteModalEl) {
     }
   });
 }
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && deleteModalEl && !deleteModalEl.hidden && deleteModalEl.style.display !== 'none') {
+    closeDeleteModal();
+  }
+});
 const sameAsPresentCheckbox = document.getElementById('field-sameAsPresent');
 if (sameAsPresentCheckbox) {
   sameAsPresentCheckbox.addEventListener('change', handleSameAsPresentChange);

@@ -594,11 +594,14 @@ Last Updated: 2026-07-09
     </section>
 
     <!-- In-app Delete Confirmation Modal (works reliably in sandboxed iframes) -->
-    <div id="delete-modal" class="confirm-modal-overlay" hidden>
+    <div id="delete-modal" class="confirm-modal-overlay is-hidden" hidden style="display: none;">
       <div class="confirm-modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <h3 id="modal-title" class="confirm-modal-title">
-          <span>⚠️</span> Delete Profile
-        </h3>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+          <h3 id="modal-title" class="confirm-modal-title" style="margin: 0;">
+            <span>⚠️</span> Delete Profile
+          </h3>
+          <button type="button" id="modal-close-x-btn" class="modal-close-x" aria-label="Close dialog">&times;</button>
+        </div>
         <p id="modal-body" class="confirm-modal-body">
           Are you sure you want to delete profile <strong id="modal-profile-name"></strong>? This will permanently remove it from your saved profiles.
         </p>
