@@ -96,7 +96,7 @@
 
               <div class="pairing-action-row">
                 <a id="direct-mobile-link" href="#" target="_blank" class="btn btn-primary" style="font-size: 11px; padding: 6px 12px;">
-                  📱 Open Companion Page
+                  📱 Open Companion Page (New Tab)
                 </a>
                 <button id="copy-mobile-link-btn" class="btn btn-secondary" style="font-size: 11px; padding: 6px 12px;" type="button">
                   📋 Copy Link
@@ -106,14 +106,28 @@
                 </span>
               </div>
 
-              <!-- Wi-Fi / Local Network IP Settings for External Devices -->
-              <div class="wifi-config-banner" id="wifi-config-banner">
-                <div class="wifi-config-title">
-                  <span>📶</span>
-                  <span>Connect Phone on Same Wi-Fi Network</span>
+              <!-- Explanation Banner: Cloud Sandbox vs Localhost -->
+              <div class="sandbox-notice-banner" id="sandbox-notice-banner">
+                <div class="sandbox-notice-title">
+                  <span>💡</span>
+                  <span>Why did <code>192.168.10.27:3000</code> say "Nothing Found" on your phone?</span>
                 </div>
-                <div class="wifi-config-desc">
-                  Your phone is a different device and cannot reach <code>localhost</code>. Enter your computer's local Wi-Fi IP address below to update the QR code:
+                <p class="sandbox-notice-desc">
+                  This app is currently running inside Google AI Studio Cloud Run, not on your personal PC. Your home computer (<code>192.168.10.27</code>) does not have the server running on port 3000 unless you download the code and run <code>npm start</code> in your terminal.
+                </p>
+                <div class="sandbox-notice-solution">
+                  <strong>✨ Best Method (0 Setup, 100% Guaranteed):</strong> Use the <strong>Instant Scan-to-Send QR Codes</strong> in Step 1 and Step 2 below! Pointing your phone camera at the QR code automatically opens your Messages app with <code>16222</code> and the message pre-typed. <strong>No IP or network connection required!</strong>
+                </div>
+              </div>
+
+              <!-- Wi-Fi / Local Network IP Settings for External Devices (Collapsible) -->
+              <details class="wifi-config-banner" id="wifi-config-banner" style="margin-top: 10px;">
+                <summary style="cursor: pointer; font-size: 12px; font-weight: 700; color: #166534; list-style: none; display: flex; align-items: center; justify-content: space-between;">
+                  <span>⚙️ Advanced: Connect via Local PC Wi-Fi IP (Optional)</span>
+                  <span style="font-size: 11px; font-weight: normal; color: #15803d;">Click to configure</span>
+                </summary>
+                <div class="wifi-config-desc" style="margin-top: 8px;">
+                  Only use this if you have downloaded the project and executed <code>npm start</code> on your computer:
                 </div>
                 <div class="wifi-config-form">
                   <span style="font-size: 11px; font-weight: 600; color: #166534;">Computer IP:</span>
@@ -131,15 +145,7 @@
                   <span style="font-size: 11px; color: #166534; font-weight: 600;">Detected IPs:</span>
                   <div id="detected-ips-list" style="display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 6px;"></div>
                 </div>
-                <details class="wifi-help-details">
-                  <summary>❓ How to find your computer's Wi-Fi IP (takes 5 seconds)</summary>
-                  <ol>
-                    <li><strong>Windows:</strong> Press <kbd>Win + R</kbd>, type <code>cmd</code>, press Enter. Type <code>ipconfig</code> and look for <strong>IPv4 Address</strong> (e.g. <code>192.168.1.25</code>).</li>
-                    <li><strong>Mac:</strong> Open <strong>System Settings &gt; Wi-Fi</strong>, click <strong>Details</strong> next to your network, and find <strong>IP Address</strong>.</li>
-                    <li><strong>Linux:</strong> Open terminal and run <code>hostname -I</code>.</li>
-                  </ol>
-                </details>
-              </div>
+              </details>
             </div>
           </div>
         </section>
@@ -200,14 +206,83 @@
                   <span class="sms-recipient-pill">To: 16222</span>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span style="font-size: 12px; color: var(--color-text-muted);">
-                    Transmits from your phone via Teletalk SIM to 16222.
+                <!-- Direct Scan-to-Send QR Code Section -->
+                <div class="direct-sms-qr-panel">
+                  <div class="direct-sms-qr-header">
+                    <span>📱</span>
+                    <span><strong>Method 1 (Instant):</strong> Scan QR Code with Android Camera or Google Lens</span>
+                  </div>
+                  <div class="direct-sms-qr-body">
+                    <div class="direct-sms-qr-frame" title="Point your phone camera to send SMS">
+                      <canvas id="step-1-qr-canvas" width="120" height="120"></canvas>
+                    </div>
+                    <div class="direct-sms-qr-info">
+                      <div class="direct-sms-qr-title">Instant Phone Launch (Zero Setup)</div>
+                      <p class="direct-sms-qr-desc">
+                        Point your phone's camera at this QR code. Android will prompt: <em>"Send SMS to 16222"</em>. Tap it, then press <strong>Send</strong> with your Teletalk SIM!
+                      </p>
+                      <div class="direct-sms-action-buttons">
+                        <button id="copy-step-1-sms-btn" class="btn btn-secondary btn-sm" type="button">
+                          📋 Copy SMS Text
+                        </button>
+                        <button id="copy-16222-btn" class="btn btn-secondary btn-sm" type="button">
+                          📋 Copy 16222
+                        </button>
+                        <a id="step-1-sms-link" href="sms:16222?body=BPSC%207A8B9C" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
+                          📲 Open SMS App
+                        </a>
+                        <button id="mark-step-1-sent-btn" class="btn btn-outline-success btn-sm" type="button">
+                          ✅ Mark as Sent
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px dashed var(--color-border); padding-top: 10px;">
+                  <span style="font-size: 11px; color: var(--color-text-muted);">
+                    Alternative: Send via linked companion page
                   </span>
-                  <button id="send-step-1-btn" class="btn btn-primary" type="button">
-                    <span>📲</span> Send 1st SMS via Phone
+                  <button id="send-step-1-btn" class="btn btn-secondary btn-sm" type="button">
+                    <span>📡</span> Queue to Web Companion
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Smart 16222 Reply SMS Parser Box -->
+            <div class="card smart-sms-parser-card" id="reply-parser-card" style="margin: 16px 0; padding: 16px;">
+              <div class="card-title" style="margin-bottom: 8px;">
+                <div class="card-title-left">
+                  <span>📥</span>
+                  <span>Received 16222 Reply SMS? Paste Here for Instant Extraction</span>
+                </div>
+                <span class="step-badge" style="background: #e0f2fe; color: #0369a1;">Smart Auto-Extractor</span>
+              </div>
+              <p style="font-size: 12px; color: var(--color-text-muted); margin: 0 0 10px 0;">
+                When Teletalk sends an SMS to your phone, paste the message text or 8-digit PIN below. It automatically detects the applicant name, fee, and PIN, and prepares Step 2!
+              </p>
+              
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <textarea id="incoming-sms-textarea" class="input-field" rows="2" placeholder="Paste full SMS from 16222 or enter 8-digit PIN (e.g. 'MD HABIBUR RAHMAN, Tk. 220 will be charged. Your PIN is 12345678. To pay fee type BPSC YES 12345678 and send to 16222')"></textarea>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                  <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 11px; color: var(--color-text-muted); font-weight: 600;">Quick Test:</span>
+                    <button id="paste-sample-pin-btn" type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 3px 8px;">
+                      Sample PIN Reply
+                    </button>
+                    <button id="paste-sample-pass-btn" type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 3px 8px;">
+                      Sample Password Reply
+                    </button>
+                  </div>
+
+                  <button id="parse-incoming-btn" type="button" class="btn btn-primary btn-sm" style="padding: 6px 14px; font-weight: 600;">
+                    <span>⚡</span> Extract &amp; Proceed to Step 2
+                  </button>
+                </div>
+                
+                <div id="parse-feedback-msg" style="display: none; font-size: 12px; padding: 6px 10px; border-radius: 6px; margin-top: 4px;"></div>
               </div>
             </div>
 
@@ -222,7 +297,7 @@
               </div>
 
               <div class="step-content">
-                <div id="pin-detected-box" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #065f46;">
+                <div id="pin-detected-box" style="display: none; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px 14px; font-size: 13px; color: #065f46; margin-bottom: 12px;">
                   <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                     <strong>✅ Teletalk 16222 Reply Detected!</strong>
                     <span id="detected-fee" style="font-weight: 700; color: #047857;">Fee: Tk. 220</span>
@@ -238,13 +313,43 @@
                   <span class="sms-recipient-pill">To: 16222</span>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <div style="display: flex; gap: 6px; align-items: center;">
-                    <label for="manual-pin-input" style="font-size: 12px; color: var(--color-text-muted);">Override PIN:</label>
-                    <input type="text" id="manual-pin-input" placeholder="87654321" style="width: 90px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--color-border); border-radius: 4px;" />
+                <!-- Direct Scan-to-Send QR Code Section for Step 2 -->
+                <div class="direct-sms-qr-panel" id="step-2-qr-panel">
+                  <div class="direct-sms-qr-header">
+                    <span>📱</span>
+                    <span><strong>Method 1 (Instant):</strong> Scan QR Code to Send Confirmation SMS</span>
                   </div>
-                  <button id="send-step-2-btn" class="btn btn-success" type="button" disabled>
-                    <span>📲</span> Send 2nd Confirmation SMS via Phone
+                  <div class="direct-sms-qr-body">
+                    <div class="direct-sms-qr-frame" title="Scan to send 2nd SMS">
+                      <canvas id="step-2-qr-canvas" width="120" height="120"></canvas>
+                    </div>
+                    <div class="direct-sms-qr-info">
+                      <div class="direct-sms-qr-title">Confirm &amp; Deduct Fee via Teletalk</div>
+                      <p class="direct-sms-qr-desc">
+                        Scan with your phone to open Messages with <code>BPSC YES &lt;PIN&gt;</code> pre-typed. Press <strong>Send</strong> on your Teletalk SIM to finalize payment!
+                      </p>
+                      <div class="direct-sms-action-buttons">
+                        <button id="copy-step-2-sms-btn" class="btn btn-secondary btn-sm" type="button">
+                          📋 Copy Confirmation SMS
+                        </button>
+                        <a id="step-2-sms-link" href="sms:16222?body=BPSC%20YES" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 4px;">
+                          📲 Open SMS App
+                        </a>
+                        <button id="mark-step-2-sent-btn" class="btn btn-outline-success btn-sm" type="button">
+                          ✅ Mark as Sent
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px dashed var(--color-border); padding-top: 10px;">
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <label for="manual-pin-input" style="font-size: 12px; color: var(--color-text-muted);">Enter / Override PIN:</label>
+                    <input type="text" id="manual-pin-input" placeholder="87654321" style="width: 100px; padding: 4px 8px; font-size: 12px; font-family: monospace; font-weight: 700; border: 1px solid var(--color-border); border-radius: 4px;" />
+                  </div>
+                  <button id="send-step-2-btn" class="btn btn-success btn-sm" type="button" disabled>
+                    <span>📡</span> Queue to Web Companion
                   </button>
                 </div>
               </div>

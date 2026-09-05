@@ -53,6 +53,60 @@
         "suggestedReply": "BPSC YES 87654321"
       },
       "timestamp": "2026-09-03T10:52:42.765Z"
+    },
+    {
+      "id": "inc_1788592676243",
+      "direction": "incoming",
+      "sender": "16222",
+      "recipient": "My Teletalk Phone",
+      "body": "MD HABIBUR RAHMAN, Tk. 220 will be charged as application fee for BPSC. Your PIN is 54891234. To pay fee type BPSC YES 54891234 and send to 16222.",
+      "parsed": {
+        "isTeletalk": true,
+        "type": "PIN_NOTIFICATION",
+        "pin": "54891234",
+        "fee": "220",
+        "applicantName": null,
+        "userId": null,
+        "password": null,
+        "suggestedReply": null
+      },
+      "timestamp": "2026-09-05T07:17:56.243Z"
+    },
+    {
+      "id": "inc_1788592688030",
+      "direction": "incoming",
+      "sender": "16222",
+      "recipient": "My Teletalk Phone",
+      "body": "87654321",
+      "parsed": {
+        "isTeletalk": false,
+        "type": "UNKNOWN",
+        "pin": null,
+        "fee": null,
+        "applicantName": null,
+        "userId": null,
+        "password": null,
+        "suggestedReply": null
+      },
+      "timestamp": "2026-09-05T07:18:08.030Z"
+    },
+    {
+      "id": "inc_1788592693438",
+      "direction": "incoming",
+      "sender": "16222",
+      "recipient": "My Teletalk Phone",
+      "body": "87654321",
+      "parsed": {
+        "isTeletalk": true,
+        "type": "PIN_NOTIFICATION",
+        "pin": "87654321",
+        "fee": null,
+        "applicantName": null,
+        "userId": null,
+        "password": null,
+        "suggestedReply": null
+      },
+      "timestamp": "2026-09-05T07:18:13.438Z"
     }
   ]
 }

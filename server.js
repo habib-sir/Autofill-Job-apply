@@ -82,22 +82,35 @@ function parseTeletalkSms(body) {
 
   const text = body.trim();
 
+  // Direct raw PIN entered (e.g. 12345678)
+  if (/^[0-9]{6,10}$/.test(text)) {
+    result.isTeletalk = true;
+    result.type = 'PIN_NOTIFICATION';
+    result.pin = text;
+    return result;
+  }
+
   // Check if this is a 1st SMS reply containing PIN
   const pinMatch = text.match(/PIN\s*(?:is|:)?\s*([0-9]{6,10})/i);
-  const feeMatch = text.match(/Tk\.?\s*([0-9]+(?:\.[0-9]+)?)/i);
+  const feeMatch = text.match(/Tk\.?\s*:?\s*([0-9]+(?:\.[0-9]+)?)/i);
   const nameMatch = text.match(/Applicant(?:'s)?\s*Name\s*:\s*([^,\n\.]+)/i);
-  const payTypeMatch = text.match(/type\s*:\s*([A-Za-z0-9]+\s+YES\s+[0-9]+)/i);
+  const startNameMatch = text.match(/^([A-Z\s\.\-]{3,35}),\s*(?:Tk|Application)/i);
+  const payTypeMatch = text.match(/type\s*(?:is|:)?\s*([A-Za-z0-9]+\s+YES\s+[0-9]+)/i);
 
   // Check if this is a 2nd SMS reply containing User ID and Password
   const userMatch = text.match(/User\s*ID\s*(?:is|:)?\s*([A-Za-z0-9]+)/i);
-  const passMatch = text.match(/Password\s*(?:is|:)?\s*([A-Za-z0-9]+)/i);
+  const passMatch = text.match(/Password\s*(?:is|:)?\s*([A-Za-z0-9@#\$%\^&\*!]+)/i);
 
   if (pinMatch) {
     result.isTeletalk = true;
     result.type = 'PIN_NOTIFICATION';
     result.pin = pinMatch[1];
     if (feeMatch) result.fee = feeMatch[1];
-    if (nameMatch) result.applicantName = nameMatch[1].trim();
+    if (nameMatch) {
+      result.applicantName = nameMatch[1].trim();
+    } else if (startNameMatch) {
+      result.applicantName = startNameMatch[1].trim();
+    }
     if (payTypeMatch) {
       result.suggestedReply = payTypeMatch[1].trim();
     }
@@ -106,6 +119,18 @@ function parseTeletalkSms(body) {
     result.type = 'PAYMENT_CONFIRMATION';
     result.password = passMatch[1];
     if (userMatch) result.userId = userMatch[1];
+    if (nameMatch) {
+      result.applicantName = nameMatch[1].trim();
+    } else if (startNameMatch) {
+      result.applicantName = startNameMatch[1].trim();
+    }
+  } else if (payTypeMatch) {
+    result.isTeletalk = true;
+    result.type = 'PIN_NOTIFICATION';
+    const parts = payTypeMatch[1].split(/\s+/);
+    if (parts.length >= 3) {
+      result.pin = parts[2];
+    }
   }
 
   return result;

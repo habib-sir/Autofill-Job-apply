@@ -81,10 +81,110 @@ const customRecipient = document.getElementById('custom-recipient');
 const customBody = document.getElementById('custom-body');
 const sendCustomSmsBtn = document.getElementById('send-custom-sms-btn');
 
+// Direct Scan-to-Send QR & Action Elements
+const step1QrCanvas = document.getElementById('step-1-qr-canvas');
+const copyStep1SmsBtn = document.getElementById('copy-step-1-sms-btn');
+const copy16222Btn = document.getElementById('copy-16222-btn');
+const step1SmsLink = document.getElementById('step-1-sms-link');
+const markStep1SentBtn = document.getElementById('mark-step-1-sent-btn');
+
+const step2QrCanvas = document.getElementById('step-2-qr-canvas');
+const copyStep2SmsBtn = document.getElementById('copy-step-2-sms-btn');
+const step2SmsLink = document.getElementById('step-2-sms-link');
+const markStep2SentBtn = document.getElementById('mark-step-2-sent-btn');
+
+// Smart 16222 Reply Parser Elements
+const incomingSmsTextarea = document.getElementById('incoming-sms-textarea');
+const parseIncomingBtn = document.getElementById('parse-incoming-btn');
+const pasteSamplePinBtn = document.getElementById('paste-sample-pin-btn');
+const pasteSamplePassBtn = document.getElementById('paste-sample-pass-btn');
+const parseFeedbackMsg = document.getElementById('parse-feedback-msg');
+
 // Activity Feed & Simulators
 const smsFeedContainer = document.getElementById('sms-feed-container');
 const simulatePinReplyBtn = document.getElementById('simulate-pin-reply-btn');
 const simulatePassReplyBtn = document.getElementById('simulate-pass-reply-btn');
+
+/**
+ * Toast feedback notification
+ */
+function showSmsToast(msg) {
+  const existing = document.querySelector('.sms-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'sms-toast';
+  toast.innerHTML = `<span>📋</span> <span>${msg}</span>`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+/**
+ * Copy to clipboard with fallback
+ */
+function copyToClipboard(text, feedback) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showSmsToast(feedback || 'Copied to clipboard!');
+    }).catch(() => fallbackCopy(text, feedback));
+  } else {
+    fallbackCopy(text, feedback);
+  }
+}
+
+function fallbackCopy(text, feedback) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showSmsToast(feedback || 'Copied to clipboard!');
+  } catch (e) {
+    prompt('Copy to clipboard:', text);
+  }
+  document.body.removeChild(ta);
+}
+
+/**
+ * Render Instant Scan-to-Send QR codes for Step 1 and Step 2
+ */
+function renderDirectSmsQrs() {
+  const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
+  const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
+  const step1Body = `${org} ${uid}`;
+  const step1Uri = `SMSTO:16222:${step1Body}`;
+  const step1WebUri = `sms:16222?body=${encodeURIComponent(step1Body)}`;
+
+  if (step1SmsLink) step1SmsLink.href = step1WebUri;
+  if (step1QrCanvas && typeof QRCodeLib !== 'undefined') {
+    QRCodeLib.toCanvas(step1QrCanvas, step1Uri, {
+      margin: 1,
+      width: 120,
+      color: { dark: '#0f172a', light: '#ffffff' }
+    }, (err) => {
+      if (err) console.error('Step 1 QR generation error:', err);
+    });
+  }
+
+  const pin = manualPinInput?.value?.trim() || currentDetectedPin || '12345678';
+  const step2Body = `${org} YES ${pin}`;
+  const step2Uri = `SMSTO:16222:${step2Body}`;
+  const step2WebUri = `sms:16222?body=${encodeURIComponent(step2Body)}`;
+
+  if (step2SmsLink) step2SmsLink.href = step2WebUri;
+  if (step2QrCanvas && typeof QRCodeLib !== 'undefined') {
+    QRCodeLib.toCanvas(step2QrCanvas, step2Uri, {
+      margin: 1,
+      width: 120,
+      color: { dark: '#0f172a', light: '#ffffff' }
+    }, (err) => {
+      if (err) console.error('Step 2 QR generation error:', err);
+    });
+  }
+}
 
 /**
  * Update previews based on orgCode and userId
@@ -96,6 +196,8 @@ function updatePreviews() {
 
   const pin = manualPinInput.value.trim() || currentDetectedPin || '[PIN]';
   step2PreviewText.textContent = `${org} YES ${pin}`;
+
+  renderDirectSmsQrs();
 }
 
 orgCodeInput.addEventListener('input', updatePreviews);
@@ -819,12 +921,142 @@ if (wifiIpInput) {
   });
 }
 
+// Direct Scan-to-Send & Parser Event Listeners
+if (copyStep1SmsBtn) {
+  copyStep1SmsBtn.addEventListener('click', () => {
+    const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
+    const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
+    copyToClipboard(`${org} ${uid}`, '1st SMS text copied!');
+  });
+}
+
+if (copy16222Btn) {
+  copy16222Btn.addEventListener('click', () => {
+    copyToClipboard('16222', 'Recipient 16222 copied!');
+  });
+}
+
+if (copyStep2SmsBtn) {
+  copyStep2SmsBtn.addEventListener('click', () => {
+    const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
+    const pin = manualPinInput?.value?.trim() || currentDetectedPin || '12345678';
+    copyToClipboard(`${org} YES ${pin}`, 'Confirmation SMS copied!');
+  });
+}
+
+if (markStep1SentBtn) {
+  markStep1SentBtn.addEventListener('click', () => {
+    step1Status.textContent = '✅ Sent from phone (marked manually)';
+    step1Status.style.color = 'var(--color-success)';
+    step1Card.classList.add('wizard-step--completed');
+    step2Card.classList.add('wizard-step--active');
+    showSmsToast('Step 1 marked as sent!');
+  });
+}
+
+if (markStep2SentBtn) {
+  markStep2SentBtn.addEventListener('click', () => {
+    step2Status.textContent = '✅ Confirmation SMS sent from phone';
+    step2Status.style.color = 'var(--color-success)';
+    step2Card.classList.add('wizard-step--completed');
+    step3Card.classList.add('wizard-step--active');
+    showSmsToast('Step 2 marked as sent!');
+  });
+}
+
+if (parseIncomingBtn) {
+  parseIncomingBtn.addEventListener('click', async () => {
+    const raw = (incomingSmsTextarea?.value || '').trim();
+    if (!raw) {
+      alert('Please paste the SMS text from 16222 or enter your 8-digit PIN.');
+      incomingSmsTextarea?.focus();
+      return;
+    }
+
+    parseIncomingBtn.disabled = true;
+    parseIncomingBtn.innerHTML = '<span>⏳</span> Parsing...';
+
+    try {
+      const res = await fetch('/api/sms/incoming', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender: '16222',
+          body: raw
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const parsed = data.message?.parsed;
+        if (parseFeedbackMsg) {
+          parseFeedbackMsg.style.display = 'block';
+          if (parsed?.pin) {
+            parseFeedbackMsg.style.background = '#ecfdf5';
+            parseFeedbackMsg.style.color = '#065f46';
+            parseFeedbackMsg.style.border = '1px solid #a7f3d0';
+            parseFeedbackMsg.innerHTML = `✅ <strong>PIN Detected: ${parsed.pin}</strong> (Fee: Tk. ${parsed.fee || '220'}). Step 2 is ready!`;
+            manualPinInput.value = parsed.pin;
+            currentDetectedPin = parsed.pin;
+            sendStep2Btn.disabled = false;
+            updatePreviews();
+            showSmsToast(`PIN ${parsed.pin} extracted successfully!`);
+          } else if (parsed?.password) {
+            parseFeedbackMsg.style.background = '#eff6ff';
+            parseFeedbackMsg.style.color = '#1e40af';
+            parseFeedbackMsg.style.border = '1px solid #bfdbfe';
+            parseFeedbackMsg.innerHTML = `🎉 <strong>Payment Confirmed!</strong> Password: <strong>${parsed.password}</strong>`;
+            showSmsToast('Payment confirmation password extracted!');
+          } else {
+            parseFeedbackMsg.style.background = '#fef3c7';
+            parseFeedbackMsg.style.color = '#92400e';
+            parseFeedbackMsg.style.border = '1px solid #fde68a';
+            parseFeedbackMsg.innerHTML = `⚠️ SMS recorded. If a PIN was included, please type it in the "Enter PIN" box.`;
+          }
+        }
+        await fetchBridgeState();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    } finally {
+      parseIncomingBtn.disabled = false;
+      parseIncomingBtn.innerHTML = '<span>⚡</span> Extract &amp; Proceed to Step 2';
+    }
+  });
+}
+
+if (pasteSamplePinBtn) {
+  pasteSamplePinBtn.addEventListener('click', () => {
+    if (incomingSmsTextarea) {
+      const name = applicantNameInput?.value?.trim() || 'MD HABIBUR RAHMAN';
+      const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
+      const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
+      incomingSmsTextarea.value = `${name}, Tk. 220 will be charged as application fee for ${org}. Your PIN is 54891234. To pay fee type ${org} YES 54891234 and send to 16222.`;
+    }
+    parseIncomingBtn?.click();
+  });
+}
+
+if (pasteSamplePassBtn) {
+  pasteSamplePassBtn.addEventListener('click', () => {
+    if (incomingSmsTextarea) {
+      const name = applicantNameInput?.value?.trim() || 'MD HABIBUR RAHMAN';
+      const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
+      const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
+      incomingSmsTextarea.value = `Congratulations ${name}! Payment completed successfully for ${org} (${uid}). User ID is ${uid} and Password is BD${Math.floor(100000 + Math.random() * 900000)}.`;
+    }
+    parseIncomingBtn?.click();
+  });
+}
+
 // Initialization
 loadSavedApplications();
 initWifiConfig();
 loadQrCode();
 fetchBridgeState();
 updatePreviews();
+renderDirectSmsQrs();
 
 // Periodic state poll
 setInterval(fetchBridgeState, 3000);

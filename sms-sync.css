@@ -612,3 +612,156 @@ body {
   70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
 }
+
+/* Cloud Sandbox Notice Banner */
+.sandbox-notice-banner {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+
+.sandbox-notice-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.sandbox-notice-desc {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0 0 8px 0;
+}
+
+.sandbox-notice-solution {
+  font-size: 11px;
+  color: #0f766e;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 4px;
+  padding: 6px 10px;
+  line-height: 1.4;
+}
+
+/* Direct Scan-to-Send QR Panel in Wizard Steps */
+.direct-sms-qr-panel {
+  margin-top: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.direct-sms-qr-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.direct-sms-qr-body {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .direct-sms-qr-body {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.direct-sms-qr-frame {
+  width: 130px;
+  height: 130px;
+  min-width: 130px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.direct-sms-qr-frame canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+.direct-sms-qr-info {
+  flex: 1;
+}
+
+.direct-sms-qr-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.direct-sms-qr-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0 0 10px 0;
+}
+
+.direct-sms-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-outline-success {
+  background: #ffffff;
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+}
+
+.btn-outline-success:hover {
+  background: var(--color-success-light);
+}
+
+/* Smart 16222 Reply SMS Parser Card */
+.smart-sms-parser-card {
+  border: 1px solid #bae6fd;
+  background: linear-gradient(to bottom, #f0f9ff, #ffffff);
+}
+
+/* Toast feedback */
+.sms-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
