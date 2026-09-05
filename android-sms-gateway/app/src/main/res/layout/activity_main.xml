@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#F8FAFC">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📱 BD Job SMS Gateway"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#0F172A" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Direct SMS bridge for Chrome Extension &amp; Teletalk 16222"
+        android:textSize="12sp"
+        android:textColor="#64748B"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Status Box -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#E0F2FE"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🔴 Disconnected"
+            android:textColor="#B91C1C"
+            android:textStyle="bold"
+            android:textSize="14sp" />
+
+        <Switch
+            android:id="@+id/sw_service"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <!-- Configuration Form -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Gateway Server URL:"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:textColor="#334155" />
+
+    <EditText
+        android:id="@+id/et_server_url"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="http://192.168.1.15:3000"
+        android:textSize="14sp"
+        android:inputType="textUri"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pairing Code (from Chrome Extension):"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:textColor="#334155" />
+
+    <EditText
+        android:id="@+id/et_pairing_code"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="BT-XXXXXX"
+        android:textSize="14sp"
+        android:textAllCaps="true"
+        android:layout_marginBottom="10dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Teletalk SIM Slot:"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:textColor="#334155" />
+
+    <Spinner
+        android:id="@+id/sp_sim_slot"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <Button
+            android:id="@+id/btn_test_sms"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="📲 Test Send SMS (16222)"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_clear_log"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Clear Log"
+            android:textSize="12sp"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+    <!-- Activity Log -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Live SMS Gateway Log:"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:textColor="#334155"
+        android:layout_marginBottom="4dp" />
+
+    <ScrollView
+        android:id="@+id/sv_log"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#0F172A"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tv_log"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="#4ADE80"
+            android:textSize="11sp"
+            android:text="[Ready] BD Job SMS Gateway initialized. Waiting to start...\n" />
+    </ScrollView>
+
+</LinearLayout>

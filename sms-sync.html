@@ -46,17 +46,20 @@
             <div class="pairing-device-info">
               <div class="device-avatar">📱</div>
               <div>
-                <div class="device-name" id="connected-device-name">Android Device</div>
+                <div class="device-name" id="connected-device-name">Android Device (Native Gateway)</div>
                 <div class="device-sub">
-                  SIM: <span id="connected-sim">Teletalk 4G</span> &bull; 
-                  Battery: <span id="connected-battery">90%</span> &bull; 
-                  <span class="pulse-dot"></span> <span id="connected-lastseen">Active</span>
+                  SIM: <span id="connected-sim" style="font-weight: 700; color: #15803d;">Teletalk 4G</span> &bull; 
+                  Battery: <span id="connected-battery">92%</span> &bull; 
+                  <span class="pulse-dot"></span> <span id="connected-lastseen">Full SMS Access Active</span>
                 </div>
               </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button id="toggle-qr-modal-btn" class="btn btn-secondary" type="button" style="font-size: 11px; padding: 5px 10px;">
-                Show QR Code
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <button id="send-test-ping-btn" class="btn btn-secondary" type="button" style="font-size: 11px; padding: 5px 10px;">
+                ⚡ Ping Phone
+              </button>
+              <button id="open-app-guide-btn" class="btn btn-secondary" type="button" style="font-size: 11px; padding: 5px 10px;">
+                📱 App Setup
               </button>
               <button id="unpair-device-btn" class="btn btn-danger-link" type="button">
                 Unlink Phone
@@ -64,7 +67,7 @@
             </div>
           </div>
 
-          <!-- Pairing / Scan QR View -->
+          <!-- Pairing / Disconnected View -->
           <div id="device-disconnected-view" class="pairing-disconnected">
             <div class="qr-col">
               <div id="qr-code-box" class="qr-box" title="Scan with Android Camera or QR App">
@@ -78,74 +81,36 @@
             </div>
 
             <div class="pairing-steps">
-              <div class="pairing-headline">Pair Android Phone (Teletalk SIM)</div>
+              <div class="pairing-headline">Android Phone Gateway (Full SMS Access)</div>
+              <p style="font-size: 12px; color: var(--color-text-muted); margin: 0 0 10px 0;">
+                Connect an app on your phone with SMS permissions. When you click <strong>"Send SMS"</strong> in this extension, your phone will automatically fire the SMS to <code>16222</code> using your Teletalk SIM, and stream back the reply PIN!
+              </p>
               
-              <div class="pairing-code-banner">
-                <span class="pairing-code-label">Pairing Code:</span>
+              <div class="pairing-code-banner" style="margin-bottom: 10px;">
+                <span class="pairing-code-label">Pairing Token:</span>
                 <code id="pairing-token-code" class="pairing-code-val">------</code>
                 <button id="copy-token-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 3px 8px;">
                   📋 Copy Code
                 </button>
               </div>
 
-              <ol class="pairing-instructions">
-                <li>Scan the QR code with your Android phone's camera, OR</li>
-                <li>Open the Companion link on your phone & enter the pairing code.</li>
-                <li>Your phone links immediately to send SMS fees via Teletalk.</li>
-              </ol>
-
-              <div class="pairing-action-row">
-                <a id="direct-mobile-link" href="#" target="_blank" class="btn btn-primary" style="font-size: 11px; padding: 6px 12px;">
-                  📱 Open Companion Page (New Tab)
-                </a>
-                <button id="copy-mobile-link-btn" class="btn btn-secondary" style="font-size: 11px; padding: 6px 12px;" type="button">
-                  📋 Copy Link
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                <button id="open-setup-modal-btn" class="btn btn-primary" type="button" style="font-size: 12px; padding: 6px 14px; font-weight: 600;">
+                  📥 Android App Setup (Full Access)
                 </button>
-                <span id="pairing-token-display" style="font-size: 11px; font-family: monospace; color: var(--color-text-muted); display: none;">
-                  Token: ...
-                </span>
+                <button id="simulate-connect-phone-btn" class="btn btn-secondary" type="button" style="font-size: 12px; padding: 6px 12px;" title="Test the full extension-to-phone flow immediately">
+                  📱 Connect Simulated Phone (Testing)
+                </button>
               </div>
 
-              <!-- Explanation Banner: Cloud Sandbox vs Localhost -->
-              <div class="sandbox-notice-banner" id="sandbox-notice-banner">
-                <div class="sandbox-notice-title">
-                  <span>💡</span>
-                  <span>Why did <code>192.168.10.27:3000</code> say "Nothing Found" on your phone?</span>
-                </div>
-                <p class="sandbox-notice-desc">
-                  This app is currently running inside Google AI Studio Cloud Run, not on your personal PC. Your home computer (<code>192.168.10.27</code>) does not have the server running on port 3000 unless you download the code and run <code>npm start</code> in your terminal.
-                </p>
-                <div class="sandbox-notice-solution">
-                  <strong>✨ Best Method (0 Setup, 100% Guaranteed):</strong> Use the <strong>Instant Scan-to-Send QR Codes</strong> in Step 1 and Step 2 below! Pointing your phone camera at the QR code automatically opens your Messages app with <code>16222</code> and the message pre-typed. <strong>No IP or network connection required!</strong>
-                </div>
+              <div style="font-size: 11px; color: var(--color-text-muted); line-height: 1.4; background: #f1f5f9; padding: 8px 12px; border-radius: 6px;">
+                <strong>⚡ Quick Options for Your Phone:</strong>
+                <ul style="margin: 4px 0 0 18px; padding: 0;">
+                  <li><strong>Native Android App:</strong> Complete Android Studio source code included in <code>/android-sms-gateway/</code> with <code>SEND_SMS</code> permission.</li>
+                  <li><strong>MacroDroid (60 Seconds):</strong> Free Play Store app with full SMS access &mdash; triggers on extension webhooks!</li>
+                  <li><strong>Termux CLI:</strong> Run <code>bash termux-gateway.sh</code> directly on your phone.</li>
+                </ul>
               </div>
-
-              <!-- Wi-Fi / Local Network IP Settings for External Devices (Collapsible) -->
-              <details class="wifi-config-banner" id="wifi-config-banner" style="margin-top: 10px;">
-                <summary style="cursor: pointer; font-size: 12px; font-weight: 700; color: #166534; list-style: none; display: flex; align-items: center; justify-content: space-between;">
-                  <span>⚙️ Advanced: Connect via Local PC Wi-Fi IP (Optional)</span>
-                  <span style="font-size: 11px; font-weight: normal; color: #15803d;">Click to configure</span>
-                </summary>
-                <div class="wifi-config-desc" style="margin-top: 8px;">
-                  Only use this if you have downloaded the project and executed <code>npm start</code> on your computer:
-                </div>
-                <div class="wifi-config-form">
-                  <span style="font-size: 11px; font-weight: 600; color: #166534;">Computer IP:</span>
-                  <input id="wifi-ip-input" class="wifi-ip-input" type="text" placeholder="e.g. 192.168.1.15" />
-                  <span style="font-size: 12px; font-weight: 700; color: #166534;">:</span>
-                  <input id="wifi-port-input" class="wifi-port-input" type="text" value="3000" />
-                  <button id="apply-wifi-ip-btn" class="btn btn-primary" type="button" style="font-size: 11px; padding: 5px 10px;">
-                    Apply to QR
-                  </button>
-                  <button id="reset-localhost-btn" class="btn btn-secondary" type="button" style="font-size: 11px; padding: 5px 10px;" title="Reset back to current page host">
-                    Reset
-                  </button>
-                </div>
-                <div id="detected-ips-wrapper" style="margin-top: 8px; display: none;">
-                  <span style="font-size: 11px; color: #166534; font-weight: 600;">Detected IPs:</span>
-                  <div id="detected-ips-list" style="display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 6px;"></div>
-                </div>
-              </details>
             </div>
           </div>
         </section>
@@ -205,6 +170,25 @@
                   </div>
                   <span class="sms-recipient-pill">To: 16222</span>
                 </div>
+
+                <!-- Primary Action: Send Directly from Phone -->
+                <div class="phone-sms-action-banner" style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 14px; margin: 12px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 13px; color: #0369a1; display: flex; align-items: center; gap: 6px;">
+                      <span>📲</span>
+                      <span>Primary Action: Send Directly from Phone</span>
+                    </div>
+                    <div id="step-1-phone-subtext" style="font-size: 11px; color: #0284c7; margin-top: 2px;">
+                      Click to command your connected phone to send this SMS to 16222 via Teletalk SIM.
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="send-step-1-phone-btn" class="btn btn-primary" type="button" style="padding: 8px 18px; font-weight: 700; font-size: 13px; box-shadow: 0 2px 4px rgba(2,132,199,0.25);">
+                      <span>📲</span> Send 1st SMS from Phone
+                    </button>
+                  </div>
+                </div>
+                <div id="step-1-phone-status" style="display: none; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;"></div>
 
                 <!-- Direct Scan-to-Send QR Code Section -->
                 <div class="direct-sms-qr-panel">
@@ -312,6 +296,25 @@
                   </div>
                   <span class="sms-recipient-pill">To: 16222</span>
                 </div>
+
+                <!-- Primary Action: Send Confirmation from Phone -->
+                <div class="phone-sms-action-banner" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 14px; margin: 12px 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <div style="font-weight: 700; font-size: 13px; color: #166534; display: flex; align-items: center; gap: 6px;">
+                      <span>📲</span>
+                      <span>Primary Action: Send Confirmation from Phone</span>
+                    </div>
+                    <div id="step-2-phone-subtext" style="font-size: 11px; color: #15803d; margin-top: 2px;">
+                      Command your phone to send confirmation SMS to 16222 and deduct fee via Teletalk.
+                    </div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="send-step-2-phone-btn" class="btn btn-success" type="button" disabled style="padding: 8px 18px; font-weight: 700; font-size: 13px; box-shadow: 0 2px 4px rgba(22,163,74,0.25);">
+                      <span>📲</span> Send 2nd SMS from Phone
+                    </button>
+                  </div>
+                </div>
+                <div id="step-2-phone-status" style="display: none; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;"></div>
 
                 <!-- Direct Scan-to-Send QR Code Section for Step 2 -->
                 <div class="direct-sms-qr-panel" id="step-2-qr-panel">
@@ -486,6 +489,93 @@
 
     </div>
 
+  </div>
+
+  <!-- Android Phone App Setup Modal -->
+  <div id="android-setup-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 9999; align-items: center; justify-content: center; padding: 16px;">
+    <div class="card" style="max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; background: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="font-size: 17px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <span>📱</span>
+          <span>Android App Setup &bull; Full SMS Access</span>
+        </div>
+        <button id="close-setup-modal-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 14px; padding: 4px 10px;">✕</button>
+      </div>
+
+      <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 700; color: #0369a1; text-transform: uppercase; margin-bottom: 4px;">Connection Credentials for your phone:</div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px;">
+          <div>Gateway URL: <strong id="modal-gateway-url" style="font-family: monospace; color: #0284c7;">--</strong></div>
+          <div>Pairing Token: <strong id="modal-pairing-token" style="font-family: monospace; color: #0284c7;">--</strong></div>
+        </div>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div style="display: flex; gap: 6px; border-bottom: 2px solid var(--color-border); margin-bottom: 16px;">
+        <button id="tab-macrodroid-btn" class="btn btn-primary btn-sm" style="border-radius: 6px 6px 0 0;" type="button">
+          ⚡ 1. MacroDroid (60 Seconds)
+        </button>
+        <button id="tab-termux-btn" class="btn btn-secondary btn-sm" style="border-radius: 6px 6px 0 0;" type="button">
+          💻 2. Termux CLI
+        </button>
+        <button id="tab-android-app-btn" class="btn btn-secondary btn-sm" style="border-radius: 6px 6px 0 0;" type="button">
+          📦 3. Native Android Project
+        </button>
+      </div>
+
+      <!-- Tab Content 1: MacroDroid -->
+      <div id="tab-content-macrodroid" style="font-size: 13px; line-height: 1.5; color: #334155;">
+        <p style="margin-bottom: 10px;">
+          <strong>MacroDroid</strong> is a free automation app on Google Play with full SMS access. It sends SMS via Teletalk automatically when commanded by your extension!
+        </p>
+        <ol style="padding-left: 20px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+          <li>Install <strong>MacroDroid</strong> from Google Play Store.</li>
+          <li>Grant MacroDroid <strong>SMS Permissions</strong> in Phone Settings.</li>
+          <li>Add a Macro with <strong>Action: Send SMS</strong> &rarr; Recipient: <code>16222</code> &rarr; SIM: <strong>Teletalk</strong>.</li>
+          <li>Trigger on Webhook using the Gateway URL and Token above.</li>
+        </ol>
+        <div style="background: #f8fafc; border: 1px dashed var(--color-border); border-radius: 6px; padding: 10px;">
+          📄 Detailed step-by-step guide saved in: <code>/android-sms-gateway/macrodroid-guide.md</code>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Termux -->
+      <div id="tab-content-termux" style="display: none; font-size: 13px; line-height: 1.5; color: #334155;">
+        <p style="margin-bottom: 10px;">
+          Run our automated gateway script inside <strong>Termux</strong> on your phone (takes 2 commands, completely free):
+        </p>
+        <div style="background: #0f172a; color: #4ade80; font-family: monospace; font-size: 12px; padding: 12px; border-radius: 6px; margin-bottom: 12px; word-break: break-all;">
+          pkg update &amp;&amp; pkg install -y termux-api jq curl<br/>
+          curl -O <span id="termux-script-url">http://.../android-sms-gateway/termux-gateway.sh</span><br/>
+          bash termux-gateway.sh
+        </div>
+        <p style="font-size: 12px; color: var(--color-text-muted);">
+          When prompted, tap <strong>Allow</strong> for Termux:API SMS permissions. Termux will run quietly in the background, send SMS to 16222 via Teletalk, and sync replies!
+        </p>
+      </div>
+
+      <!-- Tab Content 3: Native Android Studio -->
+      <div id="tab-content-android-app" style="display: none; font-size: 13px; line-height: 1.5; color: #334155;">
+        <p style="margin-bottom: 10px;">
+          The project includes the complete production-grade Android Studio source code inside <code>/android-sms-gateway/</code>:
+        </p>
+        <ul style="padding-left: 20px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 12px;">
+          <li><code>AndroidManifest.xml</code> with <code>SEND_SMS</code> and <code>RECEIVE_SMS</code></li>
+          <li><code>MainActivity.java</code>: UI with Teletalk SIM selector &amp; live logs</li>
+          <li><code>SmsGatewayService.java</code>: Persistent Foreground Service that auto-sends SMS</li>
+          <li><code>SmsReceiver.java</code>: Intercepts 16222 replies and auto-syncs PIN to PC</li>
+        </ul>
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 10px; font-size: 12px; color: #065f46;">
+          💡 Open <code>/android-sms-gateway</code> in Android Studio and click <strong>Run</strong> to install directly onto your connected phone via USB or Wi-Fi.
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 1px solid var(--color-border); padding-top: 14px;">
+        <button id="modal-done-btn" class="btn btn-primary" type="button" style="padding: 6px 18px;">
+          Done
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="chrome-polyfill.js"></script>

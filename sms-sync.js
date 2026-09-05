@@ -28,7 +28,33 @@ const deviceDisconnectedView = document.getElementById('device-disconnected-view
 const gatewayStatusBadge = document.getElementById('gateway-status-badge');
 const toggleQrModalBtn = document.getElementById('toggle-qr-modal-btn');
 
-// Wi-Fi / LAN IP controls
+// Android Phone Direct Gateway Elements
+const sendStep1PhoneBtn = document.getElementById('send-step-1-phone-btn');
+const step1PhoneStatus = document.getElementById('step-1-phone-status');
+const sendStep2PhoneBtn = document.getElementById('send-step-2-phone-btn');
+const step2PhoneStatus = document.getElementById('step-2-phone-status');
+
+const openSetupModalBtn = document.getElementById('open-setup-modal-btn');
+const openAppGuideBtn = document.getElementById('open-app-guide-btn');
+const closeSetupModalBtn = document.getElementById('close-setup-modal-btn');
+const modalDoneBtn = document.getElementById('modal-done-btn');
+const androidSetupModal = document.getElementById('android-setup-modal');
+
+const modalGatewayUrl = document.getElementById('modal-gateway-url');
+const modalPairingToken = document.getElementById('modal-pairing-token');
+const termuxScriptUrl = document.getElementById('termux-script-url');
+
+const tabMacrodroidBtn = document.getElementById('tab-macrodroid-btn');
+const tabTermuxBtn = document.getElementById('tab-termux-btn');
+const tabAndroidAppBtn = document.getElementById('tab-android-app-btn');
+const tabContentMacrodroid = document.getElementById('tab-content-macrodroid');
+const tabContentTermux = document.getElementById('tab-content-termux');
+const tabContentAndroidApp = document.getElementById('tab-content-android-app');
+
+const simulateConnectPhoneBtn = document.getElementById('simulate-connect-phone-btn');
+const sendTestPingBtn = document.getElementById('send-test-ping-btn');
+
+// Wi-Fi / LAN IP controls (optional fallback)
 const wifiConfigBanner = document.getElementById('wifi-config-banner');
 const wifiIpInput = document.getElementById('wifi-ip-input');
 const wifiPortInput = document.getElementById('wifi-port-input');
@@ -687,6 +713,244 @@ sendStep2Btn.addEventListener('click', async () => {
     sendStep2Btn.disabled = false;
   }
 });
+
+/**
+ * Direct Send 1st SMS via Connected Phone
+ */
+if (sendStep1PhoneBtn) {
+  sendStep1PhoneBtn.addEventListener('click', async () => {
+    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
+    const uid = (userIdInput.value || '').trim().toUpperCase();
+
+    if (!uid) {
+      alert('Please enter your Applicant User ID.');
+      userIdInput.focus();
+      return;
+    }
+
+    const body = `${org} ${uid}`;
+    sendStep1PhoneBtn.disabled = true;
+    
+    if (step1PhoneStatus) {
+      step1PhoneStatus.style.display = 'block';
+      step1PhoneStatus.style.background = '#eff6ff';
+      step1PhoneStatus.style.color = '#1e40af';
+      step1PhoneStatus.style.border = '1px solid #bfdbfe';
+      step1PhoneStatus.innerHTML = `<span>⏳</span> Dispatching to phone... Command: <code>${body}</code> &rarr; 16222`;
+    }
+
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: '16222',
+          body,
+          type: '1ST_SMS',
+          orgCode: org,
+          userId: uid
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSmsToast('Dispatched to phone! Sending via Teletalk SIM...');
+        if (step1PhoneStatus) {
+          step1PhoneStatus.style.background = '#ecfdf5';
+          step1PhoneStatus.style.color = '#065f46';
+          step1PhoneStatus.style.border = '1px solid #a7f3d0';
+          step1PhoneStatus.innerHTML = `<span>🚀</span> <strong>SMS Command Active!</strong> Phone is sending <code>${body}</code> to 16222 via Teletalk.`;
+        }
+        step1Status.textContent = '🚀 Sending via Phone Teletalk SIM...';
+        step1Status.style.color = 'var(--color-primary)';
+        step1Card.classList.add('wizard-step--completed');
+        step2Card.classList.add('wizard-step--active');
+        await fetchBridgeState();
+      } else {
+        alert('Error: ' + data.error);
+        if (step1PhoneStatus) {
+          step1PhoneStatus.style.background = '#fef2f2';
+          step1PhoneStatus.style.color = '#991b1b';
+          step1PhoneStatus.textContent = 'Failed to dispatch: ' + data.error;
+        }
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    } finally {
+      sendStep1PhoneBtn.disabled = false;
+    }
+  });
+}
+
+/**
+ * Direct Send 2nd Confirmation SMS via Connected Phone
+ */
+if (sendStep2PhoneBtn) {
+  sendStep2PhoneBtn.addEventListener('click', async () => {
+    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
+    const pin = manualPinInput.value.trim() || currentDetectedPin;
+
+    if (!pin) {
+      alert('Please enter or await the PIN from 16222.');
+      manualPinInput.focus();
+      return;
+    }
+
+    const body = `${org} YES ${pin}`;
+    sendStep2PhoneBtn.disabled = true;
+
+    if (step2PhoneStatus) {
+      step2PhoneStatus.style.display = 'block';
+      step2PhoneStatus.style.background = '#eff6ff';
+      step2PhoneStatus.style.color = '#1e40af';
+      step2PhoneStatus.style.border = '1px solid #bfdbfe';
+      step2PhoneStatus.innerHTML = `<span>⏳</span> Dispatching Confirmation SMS to phone: <code>${body}</code> &rarr; 16222`;
+    }
+
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: '16222',
+          body,
+          type: '2ND_SMS',
+          orgCode: org,
+          pin
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSmsToast('Confirmation SMS dispatched to phone!');
+        if (step2PhoneStatus) {
+          step2PhoneStatus.style.background = '#ecfdf5';
+          step2PhoneStatus.style.color = '#065f46';
+          step2PhoneStatus.style.border = '1px solid #a7f3d0';
+          step2PhoneStatus.innerHTML = `<span>✅</span> <strong>Sent from Phone!</strong> Teletalk is deducting fee. Awaiting confirmation password...`;
+        }
+        step2Status.textContent = '✅ Confirmation sent from phone!';
+        step2Status.style.color = 'var(--color-success)';
+        step2Card.classList.add('wizard-step--completed');
+        step3Card.classList.add('wizard-step--active');
+        await fetchBridgeState();
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    } finally {
+      sendStep2PhoneBtn.disabled = false;
+    }
+  });
+}
+
+/**
+ * Simulate Connected Android Phone (Instant Testing & Demonstration)
+ */
+if (simulateConnectPhoneBtn) {
+  simulateConnectPhoneBtn.addEventListener('click', async () => {
+    simulateConnectPhoneBtn.disabled = true;
+    simulateConnectPhoneBtn.textContent = 'Connecting...';
+    try {
+      const token = bridgeState.pairingToken || localStorage.getItem('bd_job_pairing_token') || 'BT-DEMO';
+      const res = await fetch('/api/sms/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          deviceName: 'Samsung Galaxy (Teletalk 4G)',
+          phoneModel: 'SM-G998B',
+          simCarrier: 'Teletalk Bangladesh (SIM 1)',
+          batteryLevel: 94
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSmsToast('Phone Gateway Connected! Full SMS Access active.');
+        await fetchBridgeState();
+      } else {
+        alert('Pairing error: ' + data.error);
+      }
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    } finally {
+      simulateConnectPhoneBtn.disabled = false;
+      simulateConnectPhoneBtn.textContent = '⚡ Connect Simulated Phone';
+    }
+  });
+}
+
+/**
+ * Send Test Ping to Phone
+ */
+if (sendTestPingBtn) {
+  sendTestPingBtn.addEventListener('click', async () => {
+    sendTestPingBtn.disabled = true;
+    try {
+      const res = await fetch('/api/sms/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipient: '16222',
+          body: 'PING_CHECK ' + Math.floor(1000 + Math.random() * 9000),
+          type: 'TEST'
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showSmsToast('Test ping job sent to phone queue!');
+        await fetchBridgeState();
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      sendTestPingBtn.disabled = false;
+    }
+  });
+}
+
+/**
+ * Setup Modal & Tab Navigation
+ */
+function openAndroidSetupModal() {
+  if (!androidSetupModal) return;
+  androidSetupModal.style.display = 'flex';
+  const token = bridgeState.pairingToken || localStorage.getItem('bd_job_pairing_token') || 'BT-DEMO';
+  if (modalGatewayUrl) modalGatewayUrl.textContent = window.location.origin;
+  if (modalPairingToken) modalPairingToken.textContent = token;
+  if (termuxScriptUrl) termuxScriptUrl.textContent = window.location.origin + '/android-sms-gateway/termux-gateway.sh';
+}
+
+if (openSetupModalBtn) openSetupModalBtn.addEventListener('click', openAndroidSetupModal);
+if (openAppGuideBtn) openAppGuideBtn.addEventListener('click', openAndroidSetupModal);
+if (closeSetupModalBtn) closeSetupModalBtn.addEventListener('click', () => { if (androidSetupModal) androidSetupModal.style.display = 'none'; });
+if (modalDoneBtn) modalDoneBtn.addEventListener('click', () => { if (androidSetupModal) androidSetupModal.style.display = 'none'; });
+
+if (tabMacrodroidBtn && tabTermuxBtn && tabAndroidAppBtn) {
+  tabMacrodroidBtn.addEventListener('click', () => {
+    if (tabContentMacrodroid) tabContentMacrodroid.style.display = 'block';
+    if (tabContentTermux) tabContentTermux.style.display = 'none';
+    if (tabContentAndroidApp) tabContentAndroidApp.style.display = 'none';
+    tabMacrodroidBtn.className = 'btn btn-primary btn-sm';
+    tabTermuxBtn.className = 'btn btn-secondary btn-sm';
+    tabAndroidAppBtn.className = 'btn btn-secondary btn-sm';
+  });
+  tabTermuxBtn.addEventListener('click', () => {
+    if (tabContentMacrodroid) tabContentMacrodroid.style.display = 'none';
+    if (tabContentTermux) tabContentTermux.style.display = 'block';
+    if (tabContentAndroidApp) tabContentAndroidApp.style.display = 'none';
+    tabMacrodroidBtn.className = 'btn btn-secondary btn-sm';
+    tabTermuxBtn.className = 'btn btn-primary btn-sm';
+    tabAndroidAppBtn.className = 'btn btn-secondary btn-sm';
+  });
+  tabAndroidAppBtn.addEventListener('click', () => {
+    if (tabContentMacrodroid) tabContentMacrodroid.style.display = 'none';
+    if (tabContentTermux) tabContentTermux.style.display = 'none';
+    if (tabContentAndroidApp) tabContentAndroidApp.style.display = 'block';
+    tabMacrodroidBtn.className = 'btn btn-secondary btn-sm';
+    tabTermuxBtn.className = 'btn btn-secondary btn-sm';
+    tabAndroidAppBtn.className = 'btn btn-primary btn-sm';
+  });
+}
 
 /**
  * Save Credentials to Application Tracker
