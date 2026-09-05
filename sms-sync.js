@@ -28,6 +28,17 @@ const deviceDisconnectedView = document.getElementById('device-disconnected-view
 const gatewayStatusBadge = document.getElementById('gateway-status-badge');
 const toggleQrModalBtn = document.getElementById('toggle-qr-modal-btn');
 
+// Wi-Fi / LAN IP controls
+const wifiConfigBanner = document.getElementById('wifi-config-banner');
+const wifiIpInput = document.getElementById('wifi-ip-input');
+const wifiPortInput = document.getElementById('wifi-port-input');
+const applyWifiIpBtn = document.getElementById('apply-wifi-ip-btn');
+const resetLocalhostBtn = document.getElementById('reset-localhost-btn');
+const detectedIpsWrapper = document.getElementById('detected-ips-wrapper');
+const detectedIpsList = document.getElementById('detected-ips-list');
+
+let currentCustomHost = localStorage.getItem('bd_job_sms_custom_host') || '';
+
 const connectedDeviceName = document.getElementById('connected-device-name');
 const connectedSim = document.getElementById('connected-sim');
 const connectedBattery = document.getElementById('connected-battery');
@@ -197,6 +208,17 @@ function renderQrToCanvas(url, container) {
 }
 
 /**
+ * Determine base URL for mobile companion (LAN Wi-Fi IP or current origin)
+ */
+function getResolvedBaseUrl() {
+  if (currentCustomHost) {
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${protocol}//${currentCustomHost}`;
+  }
+  return window.location.origin;
+}
+
+/**
  * Fetch or generate QR Code for mobile pairing
  */
 async function loadQrCode(forceNew = false) {
@@ -207,7 +229,8 @@ async function loadQrCode(forceNew = false) {
   }
   localStorage.setItem('bd_job_pairing_token', token);
 
-  const fallbackUrl = `${window.location.origin}/mobile-sms-bridge.html?token=${token}`;
+  const baseUrl = getResolvedBaseUrl();
+  const fallbackUrl = `${baseUrl}/mobile-sms-bridge.html?token=${token}`;
 
   if (pairingTokenCode) pairingTokenCode.textContent = token;
   if (pairingTokenDisplay) pairingTokenDisplay.textContent = 'Token: ' + token;
@@ -218,27 +241,100 @@ async function loadQrCode(forceNew = false) {
 
   try {
     const endpoint = forceNew ? '/api/sms/reset-token' : '/api/sms/qr';
-    const res = await fetch(endpoint, { method: forceNew ? 'POST' : 'GET' });
+    const queryParams = currentCustomHost ? `?customHost=${encodeURIComponent(currentCustomHost)}` : '';
+    const res = await fetch(`${endpoint}${queryParams}`, { method: forceNew ? 'POST' : 'GET' });
     const data = await res.json();
     if (data.ok) {
       bridgeState.pairingToken = data.pairingToken;
       localStorage.setItem('bd_job_pairing_token', data.pairingToken);
 
+      const targetUrl = data.pairingUrl || fallbackUrl;
       if (pairingTokenCode) pairingTokenCode.textContent = data.pairingToken;
       if (pairingTokenDisplay) pairingTokenDisplay.textContent = 'Token: ' + data.pairingToken;
-      if (directMobileLink) directMobileLink.href = data.pairingUrl;
+      if (directMobileLink) directMobileLink.href = targetUrl;
 
       if (data.qrSvg && qrCodeRender) {
         qrCodeRender.innerHTML = data.qrSvg;
       } else if (data.qrDataUrl && qrCodeRender) {
         qrCodeRender.innerHTML = `<img src="${data.qrDataUrl}" alt="Pairing QR Code" style="width:100%;height:100%;display:block;" />`;
       } else {
-        renderQrCodeGraphic(data.pairingUrl);
+        renderQrCodeGraphic(targetUrl);
       }
     }
   } catch (err) {
     console.warn('Network request for server QR code failed, using client QR:', err);
   }
+}
+
+/**
+ * Initialize Wi-Fi IP auto-detection and custom host management
+ */
+async function initWifiConfig() {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  if (currentCustomHost) {
+    const parts = currentCustomHost.split(':');
+    if (wifiIpInput) wifiIpInput.value = parts[0] || '';
+    if (wifiPortInput) wifiPortInput.value = parts[1] || '3000';
+  } else if (isLocalhost) {
+    if (wifiPortInput) wifiPortInput.value = window.location.port || '3000';
+  }
+
+  try {
+    const res = await fetch('/api/sms/network-ips');
+    const data = await res.json();
+    if (data.ok && data.ips && data.ips.length > 0) {
+      if (detectedIpsWrapper && detectedIpsList) {
+        detectedIpsWrapper.style.display = 'block';
+        detectedIpsList.innerHTML = '';
+        data.ips.forEach(item => {
+          const pill = document.createElement('button');
+          pill.className = 'wifi-ip-pill';
+          pill.type = 'button';
+          pill.textContent = `${item.address} (${item.interface})`;
+          pill.title = `Click to use Wi-Fi IP ${item.address}:${data.port || 3000}`;
+          
+          if (currentCustomHost === `${item.address}:${data.port || 3000}`) {
+            pill.classList.add('active');
+          }
+          
+          pill.addEventListener('click', () => {
+            if (wifiIpInput) wifiIpInput.value = item.address;
+            if (wifiPortInput) wifiPortInput.value = data.port || '3000';
+            applyCustomWifiHost(`${item.address}:${data.port || 3000}`);
+          });
+          detectedIpsList.appendChild(pill);
+        });
+      }
+
+      // If user is currently on localhost without a saved custom host, prefill with first non-internal IP
+      if (isLocalhost && !currentCustomHost && data.suggestedIp) {
+        if (wifiIpInput && !wifiIpInput.value) {
+          wifiIpInput.value = data.suggestedIp;
+        }
+      }
+    }
+  } catch (err) {
+    console.debug('Network IP auto-discovery skipped:', err);
+  }
+}
+
+function applyCustomWifiHost(hostString) {
+  currentCustomHost = (hostString || '').trim();
+  if (currentCustomHost) {
+    localStorage.setItem('bd_job_sms_custom_host', currentCustomHost);
+  } else {
+    localStorage.removeItem('bd_job_sms_custom_host');
+  }
+
+  if (detectedIpsList) {
+    const pills = detectedIpsList.querySelectorAll('.wifi-ip-pill');
+    pills.forEach(p => {
+      p.classList.toggle('active', currentCustomHost && p.textContent.startsWith(currentCustomHost.split(':')[0]));
+    });
+  }
+
+  loadQrCode(false);
 }
 
 /**
@@ -694,8 +790,38 @@ refreshStateBtn.addEventListener('click', () => {
   fetchBridgeState();
 });
 
+// Wi-Fi Setup Event Listeners
+if (applyWifiIpBtn) {
+  applyWifiIpBtn.addEventListener('click', () => {
+    const ip = (wifiIpInput?.value || '').trim();
+    const port = (wifiPortInput?.value || '3000').trim();
+    if (!ip) {
+      alert('Please enter your computer\'s Wi-Fi IP address (e.g. 192.168.1.15).');
+      return;
+    }
+    const host = port ? `${ip}:${port}` : ip;
+    applyCustomWifiHost(host);
+  });
+}
+
+if (resetLocalhostBtn) {
+  resetLocalhostBtn.addEventListener('click', () => {
+    if (wifiIpInput) wifiIpInput.value = '';
+    applyCustomWifiHost('');
+  });
+}
+
+if (wifiIpInput) {
+  wifiIpInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      applyWifiIpBtn?.click();
+    }
+  });
+}
+
 // Initialization
 loadSavedApplications();
+initWifiConfig();
 loadQrCode();
 fetchBridgeState();
 updatePreviews();

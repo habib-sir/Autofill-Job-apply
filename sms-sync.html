@@ -105,6 +105,41 @@
                   Token: ...
                 </span>
               </div>
+
+              <!-- Wi-Fi / Local Network IP Settings for External Devices -->
+              <div class="wifi-config-banner" id="wifi-config-banner">
+                <div class="wifi-config-title">
+                  <span>📶</span>
+                  <span>Connect Phone on Same Wi-Fi Network</span>
+                </div>
+                <div class="wifi-config-desc">
+                  Your phone is a different device and cannot reach <code>localhost</code>. Enter your computer's local Wi-Fi IP address below to update the QR code:
+                </div>
+                <div class="wifi-config-form">
+                  <span style="font-size: 11px; font-weight: 600; color: #166534;">Computer IP:</span>
+                  <input id="wifi-ip-input" class="wifi-ip-input" type="text" placeholder="e.g. 192.168.1.15" />
+                  <span style="font-size: 12px; font-weight: 700; color: #166534;">:</span>
+                  <input id="wifi-port-input" class="wifi-port-input" type="text" value="3000" />
+                  <button id="apply-wifi-ip-btn" class="btn btn-primary" type="button" style="font-size: 11px; padding: 5px 10px;">
+                    Apply to QR
+                  </button>
+                  <button id="reset-localhost-btn" class="btn btn-secondary" type="button" style="font-size: 11px; padding: 5px 10px;" title="Reset back to current page host">
+                    Reset
+                  </button>
+                </div>
+                <div id="detected-ips-wrapper" style="margin-top: 8px; display: none;">
+                  <span style="font-size: 11px; color: #166534; font-weight: 600;">Detected IPs:</span>
+                  <div id="detected-ips-list" style="display: inline-flex; gap: 6px; flex-wrap: wrap; margin-left: 6px;"></div>
+                </div>
+                <details class="wifi-help-details">
+                  <summary>❓ How to find your computer's Wi-Fi IP (takes 5 seconds)</summary>
+                  <ol>
+                    <li><strong>Windows:</strong> Press <kbd>Win + R</kbd>, type <code>cmd</code>, press Enter. Type <code>ipconfig</code> and look for <strong>IPv4 Address</strong> (e.g. <code>192.168.1.25</code>).</li>
+                    <li><strong>Mac:</strong> Open <strong>System Settings &gt; Wi-Fi</strong>, click <strong>Details</strong> next to your network, and find <strong>IP Address</strong>.</li>
+                    <li><strong>Linux:</strong> Open terminal and run <code>hostname -I</code>.</li>
+                  </ol>
+                </details>
+              </div>
             </div>
           </div>
         </section>

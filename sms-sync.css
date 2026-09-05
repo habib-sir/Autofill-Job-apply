@@ -269,6 +269,99 @@ body {
   align-items: center;
 }
 
+/* Wi-Fi & LAN Configuration Card */
+.wifi-config-banner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 14px;
+}
+
+.wifi-config-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #166534;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.wifi-config-desc {
+  font-size: 11px;
+  color: #15803d;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.wifi-config-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wifi-ip-input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  color: #166534;
+  background: #ffffff;
+  width: 140px;
+}
+
+.wifi-port-input {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border: 1px solid #86efac;
+  border-radius: 4px;
+  color: #166534;
+  background: #ffffff;
+  width: 60px;
+}
+
+.wifi-ip-pill {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: #ffffff;
+  border: 1px solid #86efac;
+  color: #15803d;
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.wifi-ip-pill:hover,
+.wifi-ip-pill.active {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+
+.wifi-help-details {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #166534;
+}
+
+.wifi-help-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.wifi-help-details ol {
+  margin: 6px 0 0 16px;
+  line-height: 1.4;
+}
+
 /* Step Wizard */
 .wizard-steps {
   display: flex;

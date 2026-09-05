@@ -30,6 +30,10 @@ const deviceState = {
 const connectionBadge = document.getElementById('connection-badge');
 const connectionDot = document.getElementById('connection-dot');
 const connectionText = document.getElementById('connection-text');
+const connTroubleBanner = document.getElementById('conn-trouble-banner');
+const connTroubleTitle = document.getElementById('conn-trouble-title');
+const connTroubleDesc = document.getElementById('conn-trouble-desc');
+const devGatewayHost = document.getElementById('dev-gateway-host');
 const pendingJobsList = document.getElementById('pending-jobs-list');
 const incomingInput = document.getElementById('incoming-sms-input');
 const pasteBtn = document.getElementById('paste-clipboard-btn');
@@ -43,6 +47,21 @@ const toastEl = document.getElementById('toast');
 document.getElementById('dev-name').textContent = deviceState.deviceName;
 document.getElementById('dev-sim').textContent = deviceState.simCarrier;
 document.getElementById('dev-token').textContent = token;
+if (devGatewayHost) devGatewayHost.textContent = window.location.origin;
+
+function showConnTrouble(title, desc) {
+  if (connTroubleBanner) {
+    connTroubleBanner.style.display = 'block';
+    if (connTroubleTitle && title) connTroubleTitle.textContent = title;
+    if (connTroubleDesc && desc) connTroubleDesc.textContent = desc;
+  }
+}
+
+function hideConnTrouble() {
+  if (connTroubleBanner) {
+    connTroubleBanner.style.display = 'none';
+  }
+}
 
 const tokenInputEl = document.getElementById('token-input');
 const updateTokenBtn = document.getElementById('update-token-btn');
@@ -101,18 +120,21 @@ async function registerDevice() {
       connectionDot.classList.remove('offline');
       connectionText.textContent = 'Linked to Extension';
       document.getElementById('dev-ping').textContent = 'Online (' + new Date().toLocaleTimeString() + ')';
+      hideConnTrouble();
     } else {
-      setOffline();
+      setOffline(data.error || 'Pairing error');
+      showConnTrouble('Pairing Code Mismatch', data.error || 'Please enter the 6-character code shown on your PC screen.');
     }
   } catch (err) {
     console.error('Pairing error:', err);
-    setOffline();
+    setOffline('Network Error');
+    showConnTrouble('Gateway Connection Error', `Cannot connect to PC server at ${window.location.origin}. Ensure your phone and computer are on the same Wi-Fi network and that port 3000 is open in your PC firewall.`);
   }
 }
 
-function setOffline() {
+function setOffline(msg = 'Disconnected') {
   connectionDot.classList.add('offline');
-  connectionText.textContent = 'Disconnected';
+  connectionText.textContent = msg;
   document.getElementById('dev-ping').textContent = 'Offline';
 }
 

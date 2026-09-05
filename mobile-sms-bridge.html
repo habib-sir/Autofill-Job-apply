@@ -290,6 +290,29 @@
 
   <main class="container">
 
+    <!-- Connection Issue Banner -->
+    <div id="conn-trouble-banner" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;">
+      <div style="display: flex; align-items: flex-start; gap: 8px;">
+        <span style="font-size: 18px;">⚠️</span>
+        <div style="flex: 1;">
+          <div id="conn-trouble-title" style="font-size: 13px; font-weight: 700; color: #991b1b; margin-bottom: 2px;">
+            Connection Problem
+          </div>
+          <div id="conn-trouble-desc" style="font-size: 12px; color: #b91c1c; line-height: 1.4;">
+            Your phone could not connect to the PC Gateway.
+          </div>
+          <div style="font-size: 11px; color: #7f1d1d; margin-top: 6px; line-height: 1.4;">
+            <strong>Quick Checklist:</strong>
+            <ul style="margin: 4px 0 0 16px;">
+              <li>Phone and computer MUST be on the exact same Wi-Fi.</li>
+              <li>Do not open <code>localhost</code> on phone. Use your computer's Wi-Fi IP (e.g. <code>http://192.168.1.X:3000</code>).</li>
+              <li>Verify the pairing code matches the code on your computer.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Pairing Token Bar / Manual Entry -->
     <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
       <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
@@ -372,6 +395,10 @@
         <div class="device-info-item">
           <div class="device-info-label">Heartbeat Ping</div>
           <div id="dev-ping" class="device-info-val">Active</div>
+        </div>
+        <div class="device-info-item" style="grid-column: 1 / -1;">
+          <div class="device-info-label">Gateway Host</div>
+          <div id="dev-gateway-host" class="device-info-val" style="word-break: break-all; font-family: monospace; font-size: 11px;">--</div>
         </div>
       </div>
 

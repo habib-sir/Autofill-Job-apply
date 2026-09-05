@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import QRCode from 'qrcode';
 
@@ -124,12 +125,46 @@ app.get('/api/sms/state', (req, res) => {
   });
 });
 
+// Helper: retrieve host machine IPv4 network interfaces (e.g. Wi-Fi IP 192.168.x.x)
+function getNetworkIps() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        if (!iface.address.startsWith('169.254')) {
+          addresses.push({ interface: name, address: iface.address });
+        }
+      }
+    }
+  }
+  return addresses;
+}
+
+// API: Get network IPs for Wi-Fi pairing
+app.get('/api/sms/network-ips', (req, res) => {
+  const ips = getNetworkIps();
+  res.json({
+    ok: true,
+    port: PORT,
+    ips,
+    suggestedIp: ips.length > 0 ? ips[0].address : null
+  });
+});
+
 // API: Generate QR Code for Phone pairing
 app.get('/api/sms/qr', async (req, res) => {
   try {
+    const requestedHost = req.query.customHost || req.query.host;
+    const requestedIp = req.query.ip;
     const forwardedHost = req.get('x-forwarded-host');
     const forwardedProto = req.get('x-forwarded-proto');
-    const host = forwardedHost || req.get('host') || `localhost:${PORT}`;
+
+    let host = requestedHost || forwardedHost || req.get('host') || `localhost:${PORT}`;
+    if (requestedIp) {
+      host = requestedIp.includes(':') ? requestedIp : `${requestedIp}:${PORT}`;
+    }
+
     const protocol = forwardedProto || (req.protocol === 'https' ? 'https' : 'http');
     const pairingUrl = `${protocol}://${host}/mobile-sms-bridge.html?token=${state.pairingToken}`;
 
@@ -156,6 +191,8 @@ app.get('/api/sms/qr', async (req, res) => {
       ok: true,
       pairingUrl,
       pairingToken: state.pairingToken,
+      networkIps: getNetworkIps(),
+      port: PORT,
       qrSvg,
       qrDataUrl
     });
@@ -170,9 +207,16 @@ app.post('/api/sms/reset-token', async (req, res) => {
   state.pairedDevice = null;
   saveState();
 
+  const requestedHost = req.query.customHost || req.query.host;
+  const requestedIp = req.query.ip;
   const forwardedHost = req.get('x-forwarded-host');
   const forwardedProto = req.get('x-forwarded-proto');
-  const host = forwardedHost || req.get('host') || `localhost:${PORT}`;
+
+  let host = requestedHost || forwardedHost || req.get('host') || `localhost:${PORT}`;
+  if (requestedIp) {
+    host = requestedIp.includes(':') ? requestedIp : `${requestedIp}:${PORT}`;
+  }
+
   const protocol = forwardedProto || (req.protocol === 'https' ? 'https' : 'http');
   const pairingUrl = `${protocol}://${host}/mobile-sms-bridge.html?token=${state.pairingToken}`;
 
@@ -187,6 +231,8 @@ app.post('/api/sms/reset-token', async (req, res) => {
     ok: true,
     pairingToken: state.pairingToken,
     pairingUrl,
+    networkIps: getNetworkIps(),
+    port: PORT,
     qrSvg,
     qrDataUrl
   });
