@@ -36,16 +36,16 @@ Applying to Bangladeshi government jobs usually means re‑typing the same CV de
 
 
 
-##🧑‍💻 How to Use
+## 🧑‍💻 How to Use
 
-1. Click the extension icon and choose “Save My CV”.
+### 1. Click the extension icon and choose “Save My CV”.
 2. Fill in the form with your personal details, education, experience, etc.
 3. Save the profile (it is stored locally in your browser).
 4. Now go to any job application page on a teletalk.com.bd portal.
 5. Click the extension icon (or press Ctrl+Shift+J) – the entire form is filled instantly.
 6. Review the information and submit – it usually takes less than 10 seconds.
 
-##🛠️ Supported Portals
+## 🛠️ Supported Portals
 
 Currently tested and working on:
 
@@ -55,7 +55,7 @@ Currently tested and working on:
 If you find a portal that isn’t working, please open an issue – we’ll add support.
 
 
-##🤝 Contributing
+## 🤝 Contributing
 
 Contributions are welcome! If you want to add support for a new portal or improve field detection, please:
 
@@ -63,7 +63,7 @@ Contributions are welcome! If you want to add support for a new portal or improv
 2. Create a new branch.
 3. Make your changes and submit a pull request.
 
-##🔎 Keywords
+## 🔎 Keywords
 
 Bangladesh job application autofill, teletalk autofill, bd govt job apply automation, one click job apply Bangladesh, e‑recruitment form filler, teletalk.com.bd autofill extension, Bengali job portal automation, resume autofill for Bangladesh
 
