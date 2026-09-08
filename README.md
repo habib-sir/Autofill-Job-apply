@@ -28,3 +28,8 @@ Applying to Bangladeshi government jobs usually means re‑typing the same CV de
 1. Download or clone this repository:
    ```bash
    git clone https://github.com/masterboom2040-ai/Autofill-Job-apply.git
+
+2. Open your Chrome/Brave browser and go to chrome://extensions.
+3. Enable Developer mode (top‑right corner).
+4. Click Load unpacked and select the extension/ folder from the cloned repository.
+5. The extension icon will appear in your toolbar.
