@@ -38,6 +38,15 @@
         </div>
       </div>
       <label class="popup__label" for="profile-select">Active profile</label>
+      <div style="margin-bottom: 6px; position: relative;">
+        <input 
+          type="text" 
+          id="popup-profile-search" 
+          placeholder="🔍 Quick filter (name or mobile)..." 
+          style="width: 100%; box-sizing: border-box; font-size: 11px; padding: 4px 8px; border: 1px solid var(--color-border, #cbd5e1); border-radius: 4px; background: #fff;"
+          autocomplete="off"
+        />
+      </div>
       <select id="profile-select" class="popup__select" aria-describedby="profile-empty-hint"></select>
       <p id="profile-empty-hint" class="popup__hint" hidden>No profiles saved yet.</p>
     </section>

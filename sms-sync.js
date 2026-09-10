@@ -1,565 +1,323 @@
 /**
- * BD Job Autofill - Phone SMS Gateway & Fee Payment Sync Controller
+ * BD Job Autofill - 16222 Direct SMS Composer & Live Feed Controller
+ * Purpose: Direct SMS sending via phone gateway and real-time 16222 reply tracking.
  */
 
+// Default seed messages to show immediately if local storage and server are empty
+const DEFAULT_INITIAL_MESSAGES = [
+  {
+    id: 'msg_welcome',
+    direction: 'system',
+    sender: 'BD Job SMS Assistant',
+    recipient: 'System',
+    body: 'Welcome to BD Job Autofill 16222 SMS Gateway. Send application fee SMS directly to 16222 and view live reply PINs & confirmation credentials here.',
+    timestamp: new Date().toISOString()
+  },
+  {
+    id: 'inc_sample_pin',
+    direction: 'incoming',
+    sender: '16222',
+    recipient: 'My Teletalk Phone',
+    body: "Applicant's Name: MD HABIBUR RAHMAN, Tk. 220 will be charged as application fee. Your PIN is 87654321. To pay fee type: BPSC YES 87654321 and send to 16222",
+    parsed: {
+      isTeletalk: true,
+      type: 'PIN_NOTIFICATION',
+      pin: '87654321',
+      fee: '220',
+      applicantName: 'MD HABIBUR RAHMAN',
+      userId: null,
+      password: null,
+      suggestedReply: 'BPSC YES 87654321'
+    },
+    timestamp: new Date(Date.now() - 3600000).toISOString()
+  }
+];
+
+// Storage keys
+const STORAGE_KEY_MESSAGES = 'bd_job_sms_messages';
+const STORAGE_KEY_CUSTOM_HOST = 'bd_job_sms_custom_host';
+
 // State
-let bridgeState = {
-  pairedDevice: null,
-  pairingToken: '',
-  pendingJobs: [],
-  messages: []
-};
+let feedMessages = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let isServerOnline = false;
+let pollingInterval = null;
 
-let savedApplications = [];
-let currentDetectedPin = '';
-let currentDetectedPassword = '';
-
-// DOM Elements
-const qrCodeRender = document.getElementById('qr-code-render');
-const qrCodeBox = document.getElementById('qr-code-box');
-const directMobileLink = document.getElementById('direct-mobile-link');
-const copyMobileLinkBtn = document.getElementById('copy-mobile-link-btn');
-const pairingTokenCode = document.getElementById('pairing-token-code');
-const copyTokenBtn = document.getElementById('copy-token-btn');
-const refreshQrBtn = document.getElementById('refresh-qr-btn');
-const pairingTokenDisplay = document.getElementById('pairing-token-display');
-const deviceConnectedView = document.getElementById('device-connected-view');
-const deviceDisconnectedView = document.getElementById('device-disconnected-view');
-const gatewayStatusBadge = document.getElementById('gateway-status-badge');
-const toggleQrModalBtn = document.getElementById('toggle-qr-modal-btn');
-
-// Android Phone Direct Gateway Elements
-const sendStep1PhoneBtn = document.getElementById('send-step-1-phone-btn');
-const step1PhoneStatus = document.getElementById('step-1-phone-status');
-const sendStep2PhoneBtn = document.getElementById('send-step-2-phone-btn');
-const step2PhoneStatus = document.getElementById('step-2-phone-status');
-
-const openSetupModalBtn = document.getElementById('open-setup-modal-btn');
-const openAppGuideBtn = document.getElementById('open-app-guide-btn');
-const closeSetupModalBtn = document.getElementById('close-setup-modal-btn');
-const modalDoneBtn = document.getElementById('modal-done-btn');
-const androidSetupModal = document.getElementById('android-setup-modal');
-
-const modalGatewayUrl = document.getElementById('modal-gateway-url');
-const modalPairingToken = document.getElementById('modal-pairing-token');
-const termuxScriptUrl = document.getElementById('termux-script-url');
-
-const tabMacrodroidBtn = document.getElementById('tab-macrodroid-btn');
-const tabTermuxBtn = document.getElementById('tab-termux-btn');
-const tabAndroidAppBtn = document.getElementById('tab-android-app-btn');
-const tabContentMacrodroid = document.getElementById('tab-content-macrodroid');
-const tabContentTermux = document.getElementById('tab-content-termux');
-const tabContentAndroidApp = document.getElementById('tab-content-android-app');
-
-const simulateConnectPhoneBtn = document.getElementById('simulate-connect-phone-btn');
-const sendTestPingBtn = document.getElementById('send-test-ping-btn');
-
-// Wi-Fi / LAN IP controls (optional fallback)
-const wifiConfigBanner = document.getElementById('wifi-config-banner');
-const wifiIpInput = document.getElementById('wifi-ip-input');
-const wifiPortInput = document.getElementById('wifi-port-input');
-const applyWifiIpBtn = document.getElementById('apply-wifi-ip-btn');
-const resetLocalhostBtn = document.getElementById('reset-localhost-btn');
-const detectedIpsWrapper = document.getElementById('detected-ips-wrapper');
-const detectedIpsList = document.getElementById('detected-ips-list');
-
-let currentCustomHost = localStorage.getItem('bd_job_sms_custom_host') || '';
-
-const connectedDeviceName = document.getElementById('connected-device-name');
-const connectedSim = document.getElementById('connected-sim');
-const connectedBattery = document.getElementById('connected-battery');
-const connectedLastseen = document.getElementById('connected-lastseen');
-const unpairDeviceBtn = document.getElementById('unpair-device-btn');
+// DOM Elements: Header & Status
+const serverStatusPill = document.getElementById('server-status-pill');
+const serverStatusDot = document.getElementById('server-status-dot');
+const serverStatusText = document.getElementById('server-status-text');
 const refreshStateBtn = document.getElementById('refresh-state-btn');
 
-// Form inputs
+// DOM Elements: Section 1 - 16222 Direct SMS Composer
 const selectSavedApp = document.getElementById('select-saved-app');
-const orgCodeInput = document.getElementById('org-code-input');
-const userIdInput = document.getElementById('user-id-input');
-const applicantNameInput = document.getElementById('applicant-name-input');
-
-// Wizard steps
-const step1Card = document.getElementById('step-1-card');
-const step1PreviewText = document.getElementById('step-1-preview-text');
-const step1Status = document.getElementById('step-1-status');
-const sendStep1Btn = document.getElementById('send-step-1-btn');
-
-const step2Card = document.getElementById('step-2-card');
-const step2PreviewText = document.getElementById('step-2-preview-text');
-const step2Status = document.getElementById('step-2-status');
-const pinDetectedBox = document.getElementById('pin-detected-box');
-const detectedFee = document.getElementById('detected-fee');
-const detectedName = document.getElementById('detected-name');
-const detectedPin = document.getElementById('detected-pin');
-const manualPinInput = document.getElementById('manual-pin-input');
-const sendStep2Btn = document.getElementById('send-step-2-btn');
-
-const step3Card = document.getElementById('step-3-card');
-const step3Status = document.getElementById('step-3-status');
-const passwordConfirmedBox = document.getElementById('password-confirmed-box');
-const passwordAwaitHint = document.getElementById('password-await-hint');
-const finalUserId = document.getElementById('final-user-id');
-const finalPassword = document.getElementById('final-password');
-const saveToApplicationsBtn = document.getElementById('save-to-applications-btn');
-
-// Custom SMS
 const customRecipient = document.getElementById('custom-recipient');
 const customBody = document.getElementById('custom-body');
-const sendCustomSmsBtn = document.getElementById('send-custom-sms-btn');
-
-// Direct Scan-to-Send QR & Action Elements
-const step1QrCanvas = document.getElementById('step-1-qr-canvas');
-const copyStep1SmsBtn = document.getElementById('copy-step-1-sms-btn');
-const copy16222Btn = document.getElementById('copy-16222-btn');
-const step1SmsLink = document.getElementById('step-1-sms-link');
-const markStep1SentBtn = document.getElementById('mark-step-1-sent-btn');
-
-const step2QrCanvas = document.getElementById('step-2-qr-canvas');
-const copyStep2SmsBtn = document.getElementById('copy-step-2-sms-btn');
-const step2SmsLink = document.getElementById('step-2-sms-link');
-const markStep2SentBtn = document.getElementById('mark-step-2-sent-btn');
-
-// Smart 16222 Reply Parser Elements
-const incomingSmsTextarea = document.getElementById('incoming-sms-textarea');
-const parseIncomingBtn = document.getElementById('parse-incoming-btn');
-const pasteSamplePinBtn = document.getElementById('paste-sample-pin-btn');
-const pasteSamplePassBtn = document.getElementById('paste-sample-pass-btn');
-const parseFeedbackMsg = document.getElementById('parse-feedback-msg');
-
-// Composer chips & status
+const charCounter = document.getElementById('char-counter');
 const chip1stSms = document.getElementById('chip-1st-sms');
 const chip2ndSms = document.getElementById('chip-2nd-sms');
 const chipHelpSms = document.getElementById('chip-help-sms');
+const sendCustomSmsBtn = document.getElementById('send-custom-sms-btn');
+const copyCustomSmsBtn = document.getElementById('copy-custom-sms-btn');
+const openSmsAppLink = document.getElementById('open-sms-app-link');
+const toggleQrBtn = document.getElementById('toggle-qr-btn');
+const composerQrPanel = document.getElementById('composer-qr-panel');
+const composerQrCanvas = document.getElementById('composer-qr-canvas');
 const customSmsStatus = document.getElementById('custom-sms-status');
+const currentGatewayLabel = document.getElementById('current-gateway-label');
+const toggleServerConfigBtn = document.getElementById('toggle-server-config-btn');
+const serverConfigDetails = document.getElementById('server-config-details');
+const customServerUrlInput = document.getElementById('custom-server-url-input');
+const saveServerUrlBtn = document.getElementById('save-server-url-btn');
+const resetServerUrlBtn = document.getElementById('reset-server-url-btn');
 
-// Activity Feed & Simulators
+// DOM Elements: Section 2 - Phone SMS Inbox & 16222 Live Feed
 const smsFeedContainer = document.getElementById('sms-feed-container');
 const smsCountBadge = document.getElementById('sms-count-badge');
 const filterAllBtn = document.getElementById('filter-all-btn');
 const filter16222Btn = document.getElementById('filter-16222-btn');
 const filterSentBtn = document.getElementById('filter-sent-btn');
 const refreshFeedBtn = document.getElementById('refresh-feed-btn');
+const clearFeedBtn = document.getElementById('clear-feed-btn');
 const smsSearchInput = document.getElementById('sms-search-input');
-const simulatePinReplyBtn = document.getElementById('simulate-pin-reply-btn');
-const simulatePassReplyBtn = document.getElementById('simulate-pass-reply-btn');
-
-let currentFilter = 'all';
-let currentSearch = '';
+const smsToast = document.getElementById('sms-toast');
 
 /**
- * Toast feedback notification
+ * Display toast notification
  */
-function showSmsToast(msg) {
-  const existing = document.querySelector('.sms-toast');
-  if (existing) existing.remove();
-
-  const toast = document.createElement('div');
-  toast.className = 'sms-toast';
-  toast.innerHTML = `<span>📋</span> <span>${msg}</span>`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+function showToast(text, duration = 3000) {
+  if (!smsToast) return;
+  smsToast.textContent = text;
+  smsToast.style.display = 'flex';
+  clearTimeout(smsToast._timer);
+  smsToast._timer = setTimeout(() => {
+    smsToast.style.display = 'none';
+  }, duration);
 }
 
 /**
- * Copy to clipboard with fallback
+ * Determine base API URL for server requests
  */
-function copyToClipboard(text, feedback) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => {
-      showSmsToast(feedback || 'Copied to clipboard!');
-    }).catch(() => fallbackCopy(text, feedback));
-  } else {
-    fallbackCopy(text, feedback);
-  }
-}
-
-function fallbackCopy(text, feedback) {
-  const ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.position = 'fixed';
-  ta.style.opacity = '0';
-  document.body.appendChild(ta);
-  ta.select();
-  try {
-    document.execCommand('copy');
-    showSmsToast(feedback || 'Copied to clipboard!');
-  } catch (e) {
-    prompt('Copy to clipboard:', text);
-  }
-  document.body.removeChild(ta);
-}
-
-/**
- * Render Instant Scan-to-Send QR codes for Step 1 and Step 2
- */
-function renderDirectSmsQrs() {
-  const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
-  const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
-  const step1Body = `${org} ${uid}`;
-  const step1Uri = `SMSTO:16222:${step1Body}`;
-  const step1WebUri = `sms:16222?body=${encodeURIComponent(step1Body)}`;
-
-  if (step1SmsLink) step1SmsLink.href = step1WebUri;
-  if (step1QrCanvas && typeof QRCodeLib !== 'undefined') {
-    QRCodeLib.toCanvas(step1QrCanvas, step1Uri, {
-      margin: 1,
-      width: 120,
-      color: { dark: '#0f172a', light: '#ffffff' }
-    }, (err) => {
-      if (err) console.error('Step 1 QR generation error:', err);
-    });
-  }
-
-  const pin = manualPinInput?.value?.trim() || currentDetectedPin || '12345678';
-  const step2Body = `${org} YES ${pin}`;
-  const step2Uri = `SMSTO:16222:${step2Body}`;
-  const step2WebUri = `sms:16222?body=${encodeURIComponent(step2Body)}`;
-
-  if (step2SmsLink) step2SmsLink.href = step2WebUri;
-  if (step2QrCanvas && typeof QRCodeLib !== 'undefined') {
-    QRCodeLib.toCanvas(step2QrCanvas, step2Uri, {
-      margin: 1,
-      width: 120,
-      color: { dark: '#0f172a', light: '#ffffff' }
-    }, (err) => {
-      if (err) console.error('Step 2 QR generation error:', err);
-    });
-  }
-}
-
-/**
- * Update previews based on orgCode and userId
- */
-function updatePreviews() {
-  const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-  const uid = (userIdInput.value || 'USERID').trim().toUpperCase();
-  step1PreviewText.textContent = `${org} ${uid}`;
-
-  const pin = manualPinInput.value.trim() || currentDetectedPin || '[PIN]';
-  step2PreviewText.textContent = `${org} YES ${pin}`;
-
-  renderDirectSmsQrs();
-}
-
-orgCodeInput.addEventListener('input', updatePreviews);
-userIdInput.addEventListener('input', updatePreviews);
-manualPinInput.addEventListener('input', (e) => {
-  const pin = e.target.value.trim();
-  if (pin) {
-    currentDetectedPin = pin;
-    sendStep2Btn.disabled = false;
-    if (sendStep2PhoneBtn) sendStep2PhoneBtn.disabled = false;
-    updatePreviews();
-  }
-});
-
-/**
- * Load saved applications from Chrome storage to populate quick dropdown
- */
-async function loadSavedApplications() {
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['applications', 'activeProfileId', 'profiles'], (result) => {
-      savedApplications = result.applications || [];
-      selectSavedApp.innerHTML = '<option value="">-- Choose an application or enter manually --</option>';
-
-      savedApplications.forEach((app, idx) => {
-        const opt = document.createElement('option');
-        opt.value = idx;
-        const org = app.orgCode || extractOrgFromUrl(app.portalUrl) || 'Govt Job';
-        const post = app.postName || 'Application';
-        const uid = app.userId || 'No User ID';
-        opt.textContent = `${org} - ${post} (User ID: ${uid})`;
-        selectSavedApp.appendChild(opt);
-      });
-    });
-  }
-}
-
-function extractOrgFromUrl(url) {
-  if (!url) return '';
-  const match = url.match(/([a-z0-9\-]+)\.teletalk\.com\.bd/i);
-  return match ? match[1].toUpperCase() : '';
-}
-
-selectSavedApp.addEventListener('change', () => {
-  const idx = selectSavedApp.value;
-  if (idx !== '' && savedApplications[idx]) {
-    const app = savedApplications[idx];
-    if (app.orgCode) {
-      orgCodeInput.value = app.orgCode;
-    } else if (app.portalUrl) {
-      orgCodeInput.value = extractOrgFromUrl(app.portalUrl) || 'BPSC';
+function getApiBaseUrl() {
+  const custom = localStorage.getItem(STORAGE_KEY_CUSTOM_HOST);
+  if (custom && custom.trim()) {
+    let url = custom.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'http://' + url;
     }
-    if (app.userId) {
-      userIdInput.value = app.userId;
-    }
-    if (app.applicantName) {
-      applicantNameInput.value = app.applicantName;
-    }
-    updatePreviews();
-  }
-});
-
-/**
- * Render QR Code graphic safely (SVG or Canvas via QRCodeLib)
- */
-function renderQrCodeGraphic(url) {
-  if (!qrCodeRender) return;
-
-  if (typeof QRCodeLib !== 'undefined') {
-    try {
-      QRCodeLib.toString(url, {
-        type: 'svg',
-        width: 140,
-        margin: 1,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
-        }
-      }, (err, svgString) => {
-        if (!err && svgString) {
-          qrCodeRender.innerHTML = svgString;
-          return;
-        }
-        renderQrToCanvas(url, qrCodeRender);
-      });
-      return;
-    } catch (e) {
-      renderQrToCanvas(url, qrCodeRender);
-      return;
-    }
+    return url.replace(/\/+$/, '');
   }
 
-  qrCodeRender.innerHTML = `
-    <div style="font-size:11px; text-align:center; padding:10px; color:#475569;">
-      <a href="${url}" target="_blank" style="color:#0284c7; font-weight:600; text-decoration:underline;">Open Companion</a>
-    </div>
-  `;
-}
-
-function renderQrToCanvas(url, container) {
-  if (typeof QRCodeLib !== 'undefined') {
-    const canvas = document.createElement('canvas');
-    canvas.width = 140;
-    canvas.height = 140;
-    QRCodeLib.toCanvas(canvas, url, { margin: 1, width: 140 }, (err) => {
-      if (!err) {
-        container.innerHTML = '';
-        container.appendChild(canvas);
-      }
-    });
+  // Inside Chrome Extension or file protocol, point to local server
+  if (window.location.protocol === 'chrome-extension:' ||
+      window.location.protocol === 'moz-extension:' ||
+      window.location.protocol === 'file:') {
+    return 'http://localhost:3000';
   }
-}
 
-/**
- * Determine base URL for mobile companion (LAN Wi-Fi IP or current origin)
- */
-function getResolvedBaseUrl() {
-  if (currentCustomHost) {
-    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    return `${protocol}//${currentCustomHost}`;
-  }
+  // Running on web server (Cloud Run, local dev, preview)
   return window.location.origin;
 }
 
 /**
- * Fetch or generate QR Code for mobile pairing
+ * Safe fetch wrapper that handles network errors gracefully without crashing
  */
-async function loadQrCode(forceNew = false) {
-  let token = bridgeState.pairingToken || localStorage.getItem('bd_job_pairing_token');
-  if (!token || forceNew) {
-    token = 'BT-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    bridgeState.pairingToken = token;
-  }
-  localStorage.setItem('bd_job_pairing_token', token);
+async function apiFetch(endpoint, options = {}) {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${endpoint}`;
 
-  const baseUrl = getResolvedBaseUrl();
-  const fallbackUrl = `${baseUrl}/mobile-sms-bridge.html?token=${token}`;
-
-  if (pairingTokenCode) pairingTokenCode.textContent = token;
-  if (pairingTokenDisplay) pairingTokenDisplay.textContent = 'Token: ' + token;
-  if (directMobileLink) directMobileLink.href = fallbackUrl;
-
-  // Render immediately so QR code is never blank
-  renderQrCodeGraphic(fallbackUrl);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   try {
-    const endpoint = forceNew ? '/api/sms/reset-token' : '/api/sms/qr';
-    const queryParams = currentCustomHost ? `?customHost=${encodeURIComponent(currentCustomHost)}` : '';
-    const res = await fetch(`${endpoint}${queryParams}`, { method: forceNew ? 'POST' : 'GET' });
-    const data = await res.json();
-    if (data.ok) {
-      bridgeState.pairingToken = data.pairingToken;
-      localStorage.setItem('bd_job_pairing_token', data.pairingToken);
-
-      const targetUrl = data.pairingUrl || fallbackUrl;
-      if (pairingTokenCode) pairingTokenCode.textContent = data.pairingToken;
-      if (pairingTokenDisplay) pairingTokenDisplay.textContent = 'Token: ' + data.pairingToken;
-      if (directMobileLink) directMobileLink.href = targetUrl;
-
-      if (data.qrSvg && qrCodeRender) {
-        qrCodeRender.innerHTML = data.qrSvg;
-      } else if (data.qrDataUrl && qrCodeRender) {
-        qrCodeRender.innerHTML = `<img src="${data.qrDataUrl}" alt="Pairing QR Code" style="width:100%;height:100%;display:block;" />`;
-      } else {
-        renderQrCodeGraphic(targetUrl);
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
       }
-    }
-  } catch (err) {
-    console.warn('Network request for server QR code failed, using client QR:', err);
-  }
-}
-
-/**
- * Initialize Wi-Fi IP auto-detection and custom host management
- */
-async function initWifiConfig() {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-  if (currentCustomHost) {
-    const parts = currentCustomHost.split(':');
-    if (wifiIpInput) wifiIpInput.value = parts[0] || '';
-    if (wifiPortInput) wifiPortInput.value = parts[1] || '3000';
-  } else if (isLocalhost) {
-    if (wifiPortInput) wifiPortInput.value = window.location.port || '3000';
-  }
-
-  try {
-    const res = await fetch('/api/sms/network-ips');
-    const data = await res.json();
-    if (data.ok && data.ips && data.ips.length > 0) {
-      if (detectedIpsWrapper && detectedIpsList) {
-        detectedIpsWrapper.style.display = 'block';
-        detectedIpsList.innerHTML = '';
-        data.ips.forEach(item => {
-          const pill = document.createElement('button');
-          pill.className = 'wifi-ip-pill';
-          pill.type = 'button';
-          pill.textContent = `${item.address} (${item.interface})`;
-          pill.title = `Click to use Wi-Fi IP ${item.address}:${data.port || 3000}`;
-          
-          if (currentCustomHost === `${item.address}:${data.port || 3000}`) {
-            pill.classList.add('active');
-          }
-          
-          pill.addEventListener('click', () => {
-            if (wifiIpInput) wifiIpInput.value = item.address;
-            if (wifiPortInput) wifiPortInput.value = data.port || '3000';
-            applyCustomWifiHost(`${item.address}:${data.port || 3000}`);
-          });
-          detectedIpsList.appendChild(pill);
-        });
-      }
-
-      // If user is currently on localhost without a saved custom host, prefill with first non-internal IP
-      if (isLocalhost && !currentCustomHost && data.suggestedIp) {
-        if (wifiIpInput && !wifiIpInput.value) {
-          wifiIpInput.value = data.suggestedIp;
-        }
-      }
-    }
-  } catch (err) {
-    console.debug('Network IP auto-discovery skipped:', err);
-  }
-}
-
-function applyCustomWifiHost(hostString) {
-  currentCustomHost = (hostString || '').trim();
-  if (currentCustomHost) {
-    localStorage.setItem('bd_job_sms_custom_host', currentCustomHost);
-  } else {
-    localStorage.removeItem('bd_job_sms_custom_host');
-  }
-
-  if (detectedIpsList) {
-    const pills = detectedIpsList.querySelectorAll('.wifi-ip-pill');
-    pills.forEach(p => {
-      p.classList.toggle('active', currentCustomHost && p.textContent.startsWith(currentCustomHost.split(':')[0]));
     });
-  }
+    clearTimeout(timeoutId);
 
-  loadQrCode(false);
-}
-
-/**
- * Fetch latest bridge state
- */
-async function fetchBridgeState() {
-  try {
-    const res = await fetch('/api/sms/state');
-    const data = await res.json();
-    if (!data.ok) return;
-
-    bridgeState = data;
-    renderDeviceStatus(data.pairedDevice);
-    renderMessages(data.messages || []);
-    analyzeMessageState(data.messages || []);
+    const data = await res.json().catch(() => ({ ok: false, error: 'Invalid JSON response' }));
+    return { ok: res.ok && data.ok, status: res.status, data, url };
   } catch (err) {
-    console.error('Error fetching bridge state:', err);
+    clearTimeout(timeoutId);
+    return {
+      ok: false,
+      isNetworkError: true,
+      error: err.name === 'AbortError' ? 'Connection timed out' : (err.message || 'Failed to connect'),
+      url
+    };
   }
 }
 
 /**
- * Render phone pairing status
+ * Teletalk SMS Content Parser for 16222 replies
  */
-function renderDeviceStatus(device) {
-  if (device && device.isOnline) {
-    deviceConnectedView.style.display = 'flex';
-    deviceDisconnectedView.style.display = 'none';
+function parseTeletalkSms(body) {
+  const result = {
+    isTeletalk: false,
+    type: 'UNKNOWN',
+    pin: null,
+    fee: null,
+    applicantName: null,
+    userId: null,
+    password: null,
+    suggestedReply: null
+  };
 
-    connectedDeviceName.textContent = device.name || 'Android Phone';
-    connectedSim.textContent = device.carrier || 'Teletalk Bangladesh';
-    connectedBattery.textContent = (device.battery !== undefined ? device.battery : 90) + '%';
-    connectedLastseen.textContent = 'Connected (Active)';
+  if (!body || typeof body !== 'string') return result;
+  const text = body.trim();
 
-    gatewayStatusBadge.textContent = 'ONLINE';
-    gatewayStatusBadge.className = 'step-badge';
-    gatewayStatusBadge.style.background = '#dcfce7';
-    gatewayStatusBadge.style.color = '#166534';
-  } else if (device) {
-    deviceConnectedView.style.display = 'flex';
-    deviceDisconnectedView.style.display = 'none';
-
-    connectedDeviceName.textContent = device.name || 'Android Phone';
-    connectedSim.textContent = device.carrier || 'Teletalk Bangladesh';
-    connectedBattery.textContent = (device.battery !== undefined ? device.battery : 90) + '%';
-    connectedLastseen.textContent = 'Last seen ' + new Date(device.lastSeen).toLocaleTimeString();
-
-    gatewayStatusBadge.textContent = 'STANDBY';
-    gatewayStatusBadge.className = 'step-badge';
-    gatewayStatusBadge.style.background = '#fef3c7';
-    gatewayStatusBadge.style.color = '#92400e';
-  } else {
-    deviceConnectedView.style.display = 'none';
-    deviceDisconnectedView.style.display = 'flex';
-
-    gatewayStatusBadge.textContent = 'AWAITING PHONE';
-    gatewayStatusBadge.className = 'step-badge';
-    gatewayStatusBadge.style.background = '#f1f5f9';
-    gatewayStatusBadge.style.color = '#475569';
+  // Raw PIN entered
+  if (/^[0-9]{6,10}$/.test(text)) {
+    result.isTeletalk = true;
+    result.type = 'PIN_NOTIFICATION';
+    result.pin = text;
+    result.suggestedReply = `BPSC YES ${text}`;
+    return result;
   }
+
+  // 1st SMS reply with PIN
+  const pinMatch = text.match(/(?:PIN\s*(?:is|:|=|-)?|your\s*PIN\s*(?:is|:|=|-)?)\s*([0-9]{6,10})/i) ||
+                   text.match(/PIN\s*[:= ]*\s*([0-9]{6,10})/i);
+  const feeMatch = text.match(/Tk\.?\s*:?\s*([0-9]+(?:\.[0-9]+)?)/i) ||
+                   text.match(/([0-9]+)\s*Tk/i);
+  const nameMatch = text.match(/Applicant(?:'s)?\s*Name\s*:\s*([^,\n\.]+)/i);
+  const startNameMatch = text.match(/^([A-Z\s\.\-]{3,35}),\s*(?:Tk|Application)/i);
+  const payTypeMatch = text.match(/type\s*(?:is|:)?\s*([A-Za-z0-9]+\s+YES\s+[0-9]+)/i) ||
+                       text.match(/([A-Za-z0-9]+\s+YES\s+[0-9]{6,10})/i);
+
+  // 2nd Confirmation SMS reply with User ID & Password
+  const userMatch = text.match(/User\s*ID\s*(?:is|:)?\s*([A-Za-z0-9]+)/i);
+  const passMatch = text.match(/Password\s*(?:is|:)?\s*([A-Za-z0-9@#\$%\^&\*!]+)/i);
+
+  if (pinMatch) {
+    result.isTeletalk = true;
+    result.type = 'PIN_NOTIFICATION';
+    result.pin = pinMatch[1];
+    if (feeMatch) result.fee = feeMatch[1];
+    if (nameMatch) {
+      result.applicantName = nameMatch[1].trim();
+    } else if (startNameMatch) {
+      result.applicantName = startNameMatch[1].trim();
+    }
+    if (payTypeMatch) {
+      result.suggestedReply = payTypeMatch[1].trim();
+    } else {
+      result.suggestedReply = `BPSC YES ${result.pin}`;
+    }
+  } else if (passMatch) {
+    result.isTeletalk = true;
+    result.type = 'PAYMENT_CONFIRMATION';
+    result.password = passMatch[1];
+    if (userMatch) result.userId = userMatch[1];
+    if (nameMatch) {
+      result.applicantName = nameMatch[1].trim();
+    } else if (startNameMatch) {
+      result.applicantName = startNameMatch[1].trim();
+    }
+  } else if (payTypeMatch) {
+    result.isTeletalk = true;
+    result.type = 'PIN_NOTIFICATION';
+    const parts = payTypeMatch[1].split(/\s+/);
+    if (parts.length >= 3) {
+      result.pin = parts[2];
+      result.suggestedReply = payTypeMatch[1].trim();
+    }
+  }
+
+  return result;
 }
 
 /**
- * Render SMS thread history
+ * Load local messages from chrome.storage or localStorage
  */
-function renderMessages(messages) {
-  if (!messages || messages.length === 0) {
-    if (smsCountBadge) smsCountBadge.textContent = '0 messages';
-    smsFeedContainer.innerHTML = `
-      <div style="text-align: center; color: var(--color-text-muted); font-size: 13px; padding: 20px;">
-        No messages yet. When your phone connects, all past and incoming SMS will appear here!
-      </div>
-    `;
-    return;
+async function loadLocalMessages() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const stored = await new Promise(resolve => {
+        chrome.storage.local.get([STORAGE_KEY_MESSAGES], res => resolve(res[STORAGE_KEY_MESSAGES]));
+      });
+      if (Array.isArray(stored) && stored.length > 0) {
+        return stored;
+      }
+    }
+  } catch (e) {
+    console.debug('chrome.storage.local read skipped:', e);
   }
 
-  // Filter messages
-  let filtered = [...messages];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_MESSAGES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.debug('localStorage read skipped:', e);
+  }
+
+  return DEFAULT_INITIAL_MESSAGES;
+}
+
+/**
+ * Persist messages locally
+ */
+async function saveLocalMessages(messages) {
+  feedMessages = messages;
+  try {
+    localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify(messages));
+  } catch (e) {}
+
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ [STORAGE_KEY_MESSAGES]: messages });
+    }
+  } catch (e) {}
+}
+
+/**
+ * Merge new messages with existing local list without duplicates
+ */
+function mergeMessages(existingList, incomingList) {
+  const merged = [...existingList];
+  for (const item of incomingList) {
+    if (!item) continue;
+    const exists = merged.some(m => {
+      if (m.id && item.id && m.id === item.id) return true;
+      if (m.body === item.body && Math.abs(new Date(m.timestamp || 0) - new Date(item.timestamp || 0)) < 2000) return true;
+      return false;
+    });
+    if (!exists) {
+      if (!item.parsed && item.body) {
+        item.parsed = parseTeletalkSms(item.body);
+      }
+      merged.push(item);
+    }
+  }
+
+  // Sort chronological descending (latest first)
+  merged.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  return merged;
+}
+
+/**
+ * Render SMS Feed messages
+ */
+function renderFeed() {
+  if (!smsFeedContainer) return;
+
+  let filtered = [...feedMessages];
+
   if (currentFilter === '16222') {
-    filtered = filtered.filter(m => 
-      (m.sender && m.sender.includes('16222')) || 
-      (m.recipient && m.recipient.includes('16222')) || 
+    filtered = filtered.filter(m =>
+      (m.sender && m.sender.includes('16222')) ||
+      (m.recipient && m.recipient.includes('16222')) ||
       (m.parsed && m.parsed.isTeletalk)
     );
   } else if (currentFilter === 'sent') {
@@ -568,946 +326,556 @@ function renderMessages(messages) {
 
   if (currentSearch) {
     const q = currentSearch.toLowerCase();
-    filtered = filtered.filter(m => 
-      (m.body && m.body.toLowerCase().includes(q)) || 
+    filtered = filtered.filter(m =>
+      (m.body && m.body.toLowerCase().includes(q)) ||
       (m.sender && m.sender.toLowerCase().includes(q)) ||
       (m.parsed && m.parsed.pin && m.parsed.pin.includes(q)) ||
-      (m.parsed && m.parsed.applicantName && m.parsed.applicantName.toLowerCase().includes(q))
+      (m.parsed && m.parsed.applicantName && m.parsed.applicantName.toLowerCase().includes(q)) ||
+      (m.parsed && m.parsed.fee && m.parsed.fee.includes(q))
     );
   }
 
   if (smsCountBadge) {
-    smsCountBadge.textContent = `${filtered.length} of ${messages.length} messages`;
+    smsCountBadge.textContent = `${filtered.length} messages`;
   }
 
   if (filtered.length === 0) {
     smsFeedContainer.innerHTML = `
-      <div style="text-align: center; color: var(--color-text-muted); font-size: 13px; padding: 20px;">
-        No messages match the current filter or search.
+      <div style="text-align: center; color: var(--color-text-muted); font-size: 13px; padding: 30px 16px;">
+        <div style="font-size: 24px; margin-bottom: 8px;">📭</div>
+        <strong>No SMS messages found</strong>
+        <p style="margin: 4px 0 0 0; font-size: 11px;">
+          ${currentSearch ? 'No messages match your search keyword.' : 'When your connected phone sends or receives an SMS, it will appear here in real time.'}
+        </p>
       </div>
     `;
     return;
   }
 
-  // Sort by time: oldest to newest
-  const sorted = filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  let html = '';
+  filtered.forEach(msg => {
+    const isIncoming = msg.direction === 'incoming';
+    const is16222 = isIncoming && (msg.sender === '16222' || (msg.parsed && msg.parsed.isTeletalk));
+    const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    const dateStr = msg.timestamp ? new Date(msg.timestamp).toLocaleDateString() : '';
 
-  smsFeedContainer.innerHTML = '';
-  sorted.forEach(msg => {
-    const bubble = document.createElement('div');
-    const isOut = msg.direction === 'outgoing';
-    bubble.className = `msg-bubble ${isOut ? 'msg-bubble--outgoing' : 'msg-bubble--incoming'}`;
+    let bubbleClass = 'msg-bubble';
+    if (is16222) bubbleClass += ' msg-bubble-16222';
+    else if (isIncoming) bubbleClass += ' msg-bubble--incoming';
+    else bubbleClass += ' msg-bubble-outgoing';
 
-    const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }) : '';
-    const senderTitle = isOut ? `Desktop ➔ Phone ➔ ${msg.recipient}` : `${msg.sender} ➔ Phone ➔ Desktop`;
-
-    let sourceBadge = '';
-    if (msg.isInboxSync) {
-      sourceBadge = `<span style="font-size: 10px; background: #e2e8f0; color: #475569; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px;">Past Phone SMS</span>`;
-    } else if (!isOut) {
-      sourceBadge = `<span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px;">Live Incoming</span>`;
-    }
-
-    let parsedExtra = '';
-    if (msg.parsed && msg.parsed.isTeletalk) {
-      if (msg.parsed.pin) {
-        parsedExtra = `
-          <div class="parsed-badge" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
-            <span>🔑 PIN: <strong>${msg.parsed.pin}</strong> ${msg.parsed.fee ? `(Fee: Tk. ${msg.parsed.fee})` : ''}</span>
-            <button type="button" class="btn btn-primary btn-sm copy-pin-btn" data-pin="${msg.parsed.pin}" style="font-size: 11px; padding: 2px 8px; font-weight: 700;">
-              📋 Use PIN for Step 2
-            </button>
+    html += `
+      <div class="${bubbleClass}" style="margin-bottom: 10px; border-radius: 8px; padding: 12px 14px;">
+        <div class="msg-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-weight: 700; ${is16222 ? 'color: #0284c7;' : isIncoming ? 'color: #166534;' : 'color: #1d4ed8;'}">
+              ${isIncoming ? (is16222 ? '📱 16222 (Teletalk Reply)' : `📩 From: ${escapeHtml(msg.sender || 'Unknown')}`) : '📲 Sent from Phone (To: ' + escapeHtml(msg.recipient || '16222') + ')'}
+            </span>
+            ${msg.status ? `<span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${escapeHtml(msg.status)}</span>` : ''}
           </div>
-        `;
-      } else if (msg.parsed.password) {
-        parsedExtra = `<div class="parsed-badge" style="background:#dbeafe; color:#1e40af; margin-top: 6px;">🎉 Fee Paid! Password: <strong>${msg.parsed.password}</strong></div>`;
-      }
-    }
-
-    bubble.innerHTML = `
-      <div class="msg-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <div style="display: flex; align-items: center;">
-          <strong style="font-size: 12px;">${senderTitle}</strong>
-          ${sourceBadge}
+          <span style="color: var(--color-text-muted);">${dateStr} ${timeStr}</span>
         </div>
-        <span style="font-size: 11px; color: var(--color-text-muted);">${timeStr}</span>
+
+        <!-- Highlighted Teletalk Details -->
+        ${msg.parsed && msg.parsed.pin ? `
+          <div class="feed-pin-box">
+            <div>
+              <span style="font-size: 11px; color: #047857; font-weight: 600;">Extracted Teletalk PIN:</span>
+              <span class="feed-pin-val">${escapeHtml(msg.parsed.pin)}</span>
+              ${msg.parsed.fee ? `<span style="margin-left: 8px; font-size: 11px; font-weight: 700; color: #047857;">Fee: Tk. ${escapeHtml(msg.parsed.fee)}</span>` : ''}
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn btn-secondary btn-sm copy-pin-action" data-pin="${escapeHtml(msg.parsed.pin)}" style="font-size: 11px; padding: 2px 8px;" type="button">
+                📋 Copy PIN
+              </button>
+              <button class="btn btn-primary btn-sm use-pin-action" data-pin="${escapeHtml(msg.parsed.pin)}" data-reply="${escapeHtml(msg.parsed.suggestedReply || '')}" style="font-size: 11px; padding: 2px 8px;" type="button">
+                ⚡ Insert in Composer
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
+        ${msg.parsed && msg.parsed.password ? `
+          <div class="feed-cred-box">
+            <div style="font-weight: 700; color: #1e40af; margin-bottom: 2px;">🎉 Payment Confirmed Credentials:</div>
+            <div>User ID: <strong>${escapeHtml(msg.parsed.userId || '--')}</strong> &bull; Password: <strong style="font-family: monospace; font-size: 14px; background: #dbeafe; padding: 1px 6px; border-radius: 4px;">${escapeHtml(msg.parsed.password)}</strong></div>
+          </div>
+        ` : ''}
+
+        <!-- Message Body -->
+        <div style="font-size: 13px; color: var(--color-text); line-height: 1.45; word-break: break-word; font-family: ${is16222 ? 'monospace' : 'inherit'};">
+          ${escapeHtml(msg.body || '')}
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+          <button class="btn btn-secondary btn-sm copy-msg-body-action" data-text="${escapeHtml(msg.body || '')}" style="font-size: 10px; padding: 2px 6px;" type="button">
+            📋 Copy SMS
+          </button>
+        </div>
       </div>
-      <div style="word-break: break-word; font-size: 13px; line-height: 1.4;">${msg.body}</div>
-      ${parsedExtra}
     `;
-
-    smsFeedContainer.appendChild(bubble);
   });
 
-  // Attach event listeners to all "Use PIN for Step 2" buttons
-  smsFeedContainer.querySelectorAll('.copy-pin-btn').forEach(btn => {
+  smsFeedContainer.innerHTML = html;
+
+  // Attach dynamic button handlers
+  smsFeedContainer.querySelectorAll('.copy-pin-action').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const pin = btn.getAttribute('data-pin');
+      const pin = e.currentTarget.getAttribute('data-pin');
       if (pin) {
-        manualPinInput.value = pin;
-        currentDetectedPin = pin;
-        updatePreviews();
-        sendStep2Btn.disabled = false;
-        if (sendStep2PhoneBtn) sendStep2PhoneBtn.disabled = false;
-        step2Status.textContent = '✅ PIN copied from SMS! Ready to send confirmation.';
-        step2Status.style.color = 'var(--color-success)';
-        step2Card.classList.add('wizard-step--active');
-        step2Card.scrollIntoView({ behavior: 'smooth' });
-        showSmsToast('PIN ' + pin + ' copied to Step 2 Confirmation SMS!');
+        navigator.clipboard.writeText(pin);
+        showToast(`📋 Copied PIN: ${pin}`);
       }
     });
   });
 
-  // Auto-scroll to bottom
-  smsFeedContainer.scrollTop = smsFeedContainer.scrollHeight;
-}
-
-/**
- * Inspect messages to auto-advance wizard steps
- */
-function analyzeMessageState(messages) {
-  const currentOrg = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-  const currentUid = (userIdInput.value || '7A8B9C').trim().toUpperCase();
-
-  // Check if 1st SMS was sent
-  const out1 = messages.find(m => m.direction === 'outgoing' && m.body && m.body.includes(currentUid));
-  if (out1) {
-    step1Status.textContent = '✅ Sent via phone SIM';
-    step1Status.style.color = 'var(--color-success)';
-    step1Card.classList.add('wizard-step--completed');
-  }
-
-  // Check if PIN reply arrived
-  const pinMsg = messages.find(m => m.parsed && m.parsed.pin);
-  if (pinMsg) {
-    const parsed = pinMsg.parsed;
-    currentDetectedPin = parsed.pin;
-    pinDetectedBox.style.display = 'block';
-    detectedPin.textContent = parsed.pin;
-    if (parsed.fee) detectedFee.textContent = `Fee: Tk. ${parsed.fee}`;
-    if (parsed.applicantName) detectedName.textContent = parsed.applicantName;
-
-    manualPinInput.value = parsed.pin;
-    step2PreviewText.textContent = `${currentOrg} YES ${parsed.pin}`;
-    step2Status.textContent = '✅ PIN detected! Ready for 2nd SMS';
-    step2Status.style.color = 'var(--color-success)';
-    step2Card.classList.add('wizard-step--active');
-    sendStep2Btn.disabled = false;
-    if (sendStep2PhoneBtn) sendStep2PhoneBtn.disabled = false;
-  }
-
-  // Check if Password reply arrived
-  const passMsg = messages.find(m => m.parsed && m.parsed.password);
-  if (passMsg) {
-    const parsed = passMsg.parsed;
-    currentDetectedPassword = parsed.password;
-    passwordConfirmedBox.style.display = 'block';
-    passwordAwaitHint.style.display = 'none';
-
-    finalUserId.textContent = parsed.userId || currentUid;
-    finalPassword.textContent = parsed.password;
-
-    step3Status.textContent = '🎉 Payment confirmed!';
-    step3Status.style.color = 'var(--color-success)';
-    step3Card.classList.add('wizard-step--completed');
-    step2Card.classList.add('wizard-step--completed');
-  }
-}
-
-/**
- * Send Step 1 SMS via Phone
- */
-sendStep1Btn.addEventListener('click', async () => {
-  const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-  const uid = (userIdInput.value || '').trim().toUpperCase();
-
-  if (!uid) {
-    alert('Please enter your Applicant User ID.');
-    userIdInput.focus();
-    return;
-  }
-
-  const body = `${org} ${uid}`;
-  sendStep1Btn.disabled = true;
-  step1Status.textContent = '⏳ Queuing to phone...';
-
-  try {
-    const res = await fetch('/api/sms/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipient: '16222',
-        body,
-        type: '1ST_SMS',
-        orgCode: org,
-        userId: uid
-      })
+  smsFeedContainer.querySelectorAll('.use-pin-action').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const pin = e.currentTarget.getAttribute('data-pin');
+      const suggested = e.currentTarget.getAttribute('data-reply');
+      if (customBody) {
+        customBody.value = suggested || `BPSC YES ${pin}`;
+        updateCharCount();
+        updateSmsLinkAndQr();
+        customBody.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        customBody.focus();
+        showToast(`⚡ Inserted PIN into Composer!`);
+      }
     });
-    const data = await res.json();
-    if (data.ok) {
-      step1Status.textContent = '📲 Queued! Open companion on phone to send';
-      step1Status.style.color = 'var(--color-primary)';
-      await fetchBridgeState();
-    } else {
-      alert('Error: ' + data.error);
-      step1Status.textContent = 'Failed to queue';
-    }
-  } catch (err) {
-    alert('Network error: ' + err.message);
-  } finally {
-    sendStep1Btn.disabled = false;
-  }
-});
+  });
 
-/**
- * Send Step 2 Confirmation SMS via Phone
- */
-sendStep2Btn.addEventListener('click', async () => {
-  const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-  const pin = manualPinInput.value.trim() || currentDetectedPin;
-
-  if (!pin) {
-    alert('Please enter or await the PIN from 16222.');
-    manualPinInput.focus();
-    return;
-  }
-
-  const body = `${org} YES ${pin}`;
-  sendStep2Btn.disabled = true;
-  step2Status.textContent = '⏳ Queuing 2nd SMS to phone...';
-
-  try {
-    const res = await fetch('/api/sms/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipient: '16222',
-        body,
-        type: '2ND_SMS',
-        orgCode: org,
-        pin
-      })
+  smsFeedContainer.querySelectorAll('.copy-msg-body-action').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const text = e.currentTarget.getAttribute('data-text');
+      if (text) {
+        navigator.clipboard.writeText(text);
+        showToast('📋 Copied full message text');
+      }
     });
-    const data = await res.json();
-    if (data.ok) {
-      step2Status.textContent = '📲 2nd SMS Queued! Sending from phone...';
-      step2Status.style.color = 'var(--color-primary)';
-      await fetchBridgeState();
-    } else {
-      alert('Error: ' + data.error);
-    }
-  } catch (err) {
-    alert('Network error: ' + err.message);
-  } finally {
-    sendStep2Btn.disabled = false;
+  });
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Update character counter and SMS segment calculation
+ */
+function updateCharCount() {
+  if (!customBody || !charCounter) return;
+  const len = customBody.value.length;
+  const parts = Math.max(1, Math.ceil(len / 160));
+  charCounter.textContent = `${len} chars • ${parts} SMS`;
+}
+
+/**
+ * Update SMS App link and QR code canvas
+ */
+function updateSmsLinkAndQr() {
+  const recipient = (customRecipient && customRecipient.value.trim()) || '16222';
+  const body = (customBody && customBody.value.trim()) || '';
+  const encodedBody = encodeURIComponent(body);
+  const smsUri = `sms:${recipient}?body=${encodedBody}`;
+
+  if (openSmsAppLink) {
+    openSmsAppLink.href = smsUri;
   }
-});
 
-/**
- * Direct Send 1st SMS via Connected Phone
- */
-if (sendStep1PhoneBtn) {
-  sendStep1PhoneBtn.addEventListener('click', async () => {
-    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-    const uid = (userIdInput.value || '').trim().toUpperCase();
-
-    if (!uid) {
-      alert('Please enter your Applicant User ID.');
-      userIdInput.focus();
-      return;
-    }
-
-    const body = `${org} ${uid}`;
-    sendStep1PhoneBtn.disabled = true;
-    
-    if (step1PhoneStatus) {
-      step1PhoneStatus.style.display = 'block';
-      step1PhoneStatus.style.background = '#eff6ff';
-      step1PhoneStatus.style.color = '#1e40af';
-      step1PhoneStatus.style.border = '1px solid #bfdbfe';
-      step1PhoneStatus.innerHTML = `<span>⏳</span> Dispatching to phone... Command: <code>${body}</code> &rarr; 16222`;
-    }
-
+  if (composerQrCanvas && typeof QRCode !== 'undefined') {
     try {
-      const res = await fetch('/api/sms/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: '16222',
-          body,
-          type: '1ST_SMS',
-          orgCode: org,
-          userId: uid
-        })
+      QRCode.toCanvas(composerQrCanvas, smsUri, {
+        width: 90,
+        margin: 1,
+        color: { dark: '#0f172a', light: '#ffffff' }
+      }, (err) => {
+        if (err) console.debug('QR render err:', err);
       });
-      const data = await res.json();
-      if (data.ok) {
-        showSmsToast('Dispatched to phone! Sending via Teletalk SIM...');
-        if (step1PhoneStatus) {
-          step1PhoneStatus.style.background = '#ecfdf5';
-          step1PhoneStatus.style.color = '#065f46';
-          step1PhoneStatus.style.border = '1px solid #a7f3d0';
-          step1PhoneStatus.innerHTML = `<span>🚀</span> <strong>SMS Command Active!</strong> Phone is sending <code>${body}</code> to 16222 via Teletalk.`;
-        }
-        step1Status.textContent = '🚀 Sending via Phone Teletalk SIM...';
-        step1Status.style.color = 'var(--color-primary)';
-        step1Card.classList.add('wizard-step--completed');
-        step2Card.classList.add('wizard-step--active');
-        await fetchBridgeState();
-      } else {
-        alert('Error: ' + data.error);
-        if (step1PhoneStatus) {
-          step1PhoneStatus.style.background = '#fef2f2';
-          step1PhoneStatus.style.color = '#991b1b';
-          step1PhoneStatus.textContent = 'Failed to dispatch: ' + data.error;
-        }
-      }
-    } catch (err) {
-      alert('Network error: ' + err.message);
-    } finally {
-      sendStep1PhoneBtn.disabled = false;
-    }
-  });
-}
-
-/**
- * Direct Send 2nd Confirmation SMS via Connected Phone
- */
-if (sendStep2PhoneBtn) {
-  sendStep2PhoneBtn.addEventListener('click', async () => {
-    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-    const pin = manualPinInput.value.trim() || currentDetectedPin;
-
-    if (!pin) {
-      alert('Please enter or await the PIN from 16222.');
-      manualPinInput.focus();
-      return;
-    }
-
-    const body = `${org} YES ${pin}`;
-    sendStep2PhoneBtn.disabled = true;
-
-    if (step2PhoneStatus) {
-      step2PhoneStatus.style.display = 'block';
-      step2PhoneStatus.style.background = '#eff6ff';
-      step2PhoneStatus.style.color = '#1e40af';
-      step2PhoneStatus.style.border = '1px solid #bfdbfe';
-      step2PhoneStatus.innerHTML = `<span>⏳</span> Dispatching Confirmation SMS to phone: <code>${body}</code> &rarr; 16222`;
-    }
-
-    try {
-      const res = await fetch('/api/sms/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: '16222',
-          body,
-          type: '2ND_SMS',
-          orgCode: org,
-          pin
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showSmsToast('Confirmation SMS dispatched to phone!');
-        if (step2PhoneStatus) {
-          step2PhoneStatus.style.background = '#ecfdf5';
-          step2PhoneStatus.style.color = '#065f46';
-          step2PhoneStatus.style.border = '1px solid #a7f3d0';
-          step2PhoneStatus.innerHTML = `<span>✅</span> <strong>Sent from Phone!</strong> Teletalk is deducting fee. Awaiting confirmation password...`;
-        }
-        step2Status.textContent = '✅ Confirmation sent from phone!';
-        step2Status.style.color = 'var(--color-success)';
-        step2Card.classList.add('wizard-step--completed');
-        step3Card.classList.add('wizard-step--active');
-        await fetchBridgeState();
-      } else {
-        alert('Error: ' + data.error);
-      }
-    } catch (err) {
-      alert('Network error: ' + err.message);
-    } finally {
-      sendStep2PhoneBtn.disabled = false;
-    }
-  });
-}
-
-/**
- * Simulate Connected Android Phone (Instant Testing & Demonstration)
- */
-if (simulateConnectPhoneBtn) {
-  simulateConnectPhoneBtn.addEventListener('click', async () => {
-    simulateConnectPhoneBtn.disabled = true;
-    simulateConnectPhoneBtn.textContent = 'Connecting...';
-    try {
-      const token = bridgeState.pairingToken || localStorage.getItem('bd_job_pairing_token') || 'BT-DEMO';
-      const res = await fetch('/api/sms/pair', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          deviceName: 'Samsung Galaxy (Teletalk 4G)',
-          phoneModel: 'SM-G998B',
-          simCarrier: 'Teletalk Bangladesh (SIM 1)',
-          batteryLevel: 94
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showSmsToast('Phone Gateway Connected! Full SMS Access active.');
-        await fetchBridgeState();
-      } else {
-        alert('Pairing error: ' + data.error);
-      }
-    } catch (err) {
-      alert('Network error: ' + err.message);
-    } finally {
-      simulateConnectPhoneBtn.disabled = false;
-      simulateConnectPhoneBtn.textContent = '⚡ Connect Simulated Phone';
-    }
-  });
-}
-
-/**
- * Send Test Ping to Phone
- */
-if (sendTestPingBtn) {
-  sendTestPingBtn.addEventListener('click', async () => {
-    sendTestPingBtn.disabled = true;
-    try {
-      const res = await fetch('/api/sms/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipient: '16222',
-          body: 'PING_CHECK ' + Math.floor(1000 + Math.random() * 9000),
-          type: 'TEST'
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showSmsToast('Test ping job sent to phone queue!');
-        await fetchBridgeState();
-      }
     } catch (e) {
-      alert('Error: ' + e.message);
-    } finally {
-      sendTestPingBtn.disabled = false;
+      console.debug('QR canvas generation error:', e);
     }
-  });
-}
-
-/**
- * Setup Modal & Tab Navigation
- */
-function openAndroidSetupModal() {
-  if (!androidSetupModal) return;
-  androidSetupModal.style.display = 'flex';
-  const token = bridgeState.pairingToken || localStorage.getItem('bd_job_pairing_token') || 'BT-DEMO';
-  if (modalGatewayUrl) modalGatewayUrl.textContent = window.location.origin;
-  if (modalPairingToken) modalPairingToken.textContent = token;
-  if (termuxScriptUrl) termuxScriptUrl.textContent = window.location.origin + '/android-sms-gateway/termux-gateway.sh';
-}
-
-if (openSetupModalBtn) openSetupModalBtn.addEventListener('click', openAndroidSetupModal);
-if (openAppGuideBtn) openAppGuideBtn.addEventListener('click', openAndroidSetupModal);
-if (closeSetupModalBtn) closeSetupModalBtn.addEventListener('click', () => { if (androidSetupModal) androidSetupModal.style.display = 'none'; });
-if (modalDoneBtn) modalDoneBtn.addEventListener('click', () => { if (androidSetupModal) androidSetupModal.style.display = 'none'; });
-
-if (tabMacrodroidBtn && tabTermuxBtn && tabAndroidAppBtn) {
-  tabMacrodroidBtn.addEventListener('click', () => {
-    if (tabContentMacrodroid) tabContentMacrodroid.style.display = 'block';
-    if (tabContentTermux) tabContentTermux.style.display = 'none';
-    if (tabContentAndroidApp) tabContentAndroidApp.style.display = 'none';
-    tabMacrodroidBtn.className = 'btn btn-primary btn-sm';
-    tabTermuxBtn.className = 'btn btn-secondary btn-sm';
-    tabAndroidAppBtn.className = 'btn btn-secondary btn-sm';
-  });
-  tabTermuxBtn.addEventListener('click', () => {
-    if (tabContentMacrodroid) tabContentMacrodroid.style.display = 'none';
-    if (tabContentTermux) tabContentTermux.style.display = 'block';
-    if (tabContentAndroidApp) tabContentAndroidApp.style.display = 'none';
-    tabMacrodroidBtn.className = 'btn btn-secondary btn-sm';
-    tabTermuxBtn.className = 'btn btn-primary btn-sm';
-    tabAndroidAppBtn.className = 'btn btn-secondary btn-sm';
-  });
-  tabAndroidAppBtn.addEventListener('click', () => {
-    if (tabContentMacrodroid) tabContentMacrodroid.style.display = 'none';
-    if (tabContentTermux) tabContentTermux.style.display = 'none';
-    if (tabContentAndroidApp) tabContentAndroidApp.style.display = 'block';
-    tabMacrodroidBtn.className = 'btn btn-secondary btn-sm';
-    tabTermuxBtn.className = 'btn btn-secondary btn-sm';
-    tabAndroidAppBtn.className = 'btn btn-primary btn-sm';
-  });
-}
-
-/**
- * Save Credentials to Application Tracker
- */
-saveToApplicationsBtn.addEventListener('click', () => {
-  const uid = (userIdInput.value || '').trim().toUpperCase();
-  const org = (orgCodeInput.value || '').trim().toUpperCase();
-  const pin = currentDetectedPin;
-  const pass = currentDetectedPassword;
-
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['applications'], (result) => {
-      const apps = result.applications || [];
-      // Find matching app by userId or org
-      const target = apps.find(a => (a.userId && a.userId.toUpperCase() === uid) || (a.orgCode === org));
-      if (target) {
-        target.feeStatus = 'Paid';
-        target.pin = pin;
-        target.password = pass;
-        target.paidAt = new Date().toISOString();
-      } else {
-        // Add new record
-        apps.push({
-          id: 'app_' + Date.now(),
-          orgCode: org,
-          userId: uid,
-          postName: 'Application (' + org + ')',
-          feeStatus: 'Paid',
-          pin,
-          password: pass,
-          paidAt: new Date().toISOString(),
-          createdAt: new Date().toISOString()
-        });
-      }
-
-      chrome.storage.local.set({ applications: apps }, () => {
-        saveToApplicationsBtn.textContent = '✅ Saved to Application Tracker!';
-        saveToApplicationsBtn.disabled = true;
-        setTimeout(() => {
-          saveToApplicationsBtn.textContent = '💾 Save Credentials to Application Tracker';
-          saveToApplicationsBtn.disabled = false;
-        }, 3000);
-      });
-    });
-  } else {
-    alert('Credentials saved: User ID ' + uid + ' | Password ' + pass);
   }
-});
+}
 
 /**
- * Quick Custom SMS Send & Chips
+ * Check gateway server status and update UI pill
  */
-if (chip1stSms) {
-  chip1stSms.addEventListener('click', () => {
-    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-    const uid = (userIdInput.value || '7A8B9C').trim().toUpperCase();
-    customRecipient.value = '16222';
-    customBody.value = `${org} ${uid}`;
-  });
+async function checkServerStatus() {
+  const base = getApiBaseUrl();
+  if (currentGatewayLabel) {
+    currentGatewayLabel.textContent = base;
+  }
+
+  const result = await apiFetch('/api/sms/state');
+  if (result.ok && result.data) {
+    isServerOnline = true;
+    if (serverStatusPill) {
+      serverStatusPill.className = 'server-status-pill server-status-pill--online';
+    }
+    if (serverStatusText) {
+      const devName = result.data.pairedDevice ? result.data.pairedDevice.name : 'Server Online';
+      serverStatusText.textContent = `🟢 ${devName} (${base.replace(/^https?:\/\//, '')})`;
+    }
+
+    // Merge server messages with local messages
+    if (Array.isArray(result.data.messages)) {
+      const merged = mergeMessages(feedMessages, result.data.messages);
+      await saveLocalMessages(merged);
+      renderFeed();
+    }
+  } else {
+    isServerOnline = false;
+    if (serverStatusPill) {
+      serverStatusPill.className = 'server-status-pill server-status-pill--offline';
+    }
+    if (serverStatusText) {
+      serverStatusText.textContent = `🟡 Local Outbox (Server Offline)`;
+    }
+  }
 }
 
-if (chip2ndSms) {
-  chip2ndSms.addEventListener('click', () => {
-    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-    const pin = manualPinInput.value.trim() || currentDetectedPin || '12345678';
-    customRecipient.value = '16222';
-    customBody.value = `${org} YES ${pin}`;
-  });
-}
-
-if (chipHelpSms) {
-  chipHelpSms.addEventListener('click', () => {
-    customRecipient.value = '16222';
-    customBody.value = '16222 HELP';
-  });
-}
-
-sendCustomSmsBtn.addEventListener('click', async () => {
-  const recipient = customRecipient.value.trim();
-  const body = customBody.value.trim();
+/**
+ * Handle sending custom SMS from Composer
+ */
+async function handleSendCustomSms() {
+  const recipient = (customRecipient && customRecipient.value.trim()) || '16222';
+  const body = (customBody && customBody.value.trim()) || '';
 
   if (!recipient || !body) {
-    alert('Please enter both recipient number and message text.');
+    setCustomSmsStatus('Please enter both recipient number and SMS body.', 'error');
+    if (!body && customBody) customBody.focus();
     return;
   }
 
   sendCustomSmsBtn.disabled = true;
-  if (customSmsStatus) {
-    customSmsStatus.style.color = '#0284c7';
-    customSmsStatus.textContent = `⏳ Sending command to phone (${recipient})...`;
+  setCustomSmsStatus(`⏳ Dispatching SMS to ${recipient}...`, 'info');
+
+  const parsed = parseTeletalkSms(body);
+  const newMsg = {
+    id: 'out_' + Date.now(),
+    direction: 'outgoing',
+    sender: 'Desktop Composer',
+    recipient,
+    body,
+    parsed,
+    status: 'DISPATCHING',
+    timestamp: new Date().toISOString()
+  };
+
+  // Add immediately to local feed so user sees it instantly
+  feedMessages.unshift(newMsg);
+  await saveLocalMessages(feedMessages);
+  renderFeed();
+
+  // Dispatch to server gateway
+  const result = await apiFetch('/api/sms/send', {
+    method: 'POST',
+    body: JSON.stringify({
+      recipient,
+      body,
+      type: parsed.type || 'CUSTOM'
+    })
+  });
+
+  if (result.ok) {
+    newMsg.status = 'DISPATCHED_TO_PHONE';
+    await saveLocalMessages(feedMessages);
+    renderFeed();
+    setCustomSmsStatus(`✅ Dispatched to phone gateway! Your Teletalk SIM is sending now.`, 'success');
+    showToast(`📲 SMS sent to Phone Gateway (${recipient})`);
+  } else {
+    // Server is unreachable or local development
+    newMsg.status = 'SAVED_TO_OUTBOX';
+    await saveLocalMessages(feedMessages);
+    renderFeed();
+    setCustomSmsStatus(`💾 Saved to Outbox! Gateway server is offline. Click "Open SMS App" or Scan QR to send directly.`, 'warning');
+    showToast(`💾 SMS saved to Outbox (Phone Gateway Offline)`);
   }
 
+  sendCustomSmsBtn.disabled = false;
+}
+
+function setCustomSmsStatus(message, type) {
+  if (!customSmsStatus) return;
+  customSmsStatus.style.display = 'block';
+  customSmsStatus.textContent = message;
+
+  if (type === 'success') {
+    customSmsStatus.style.background = '#dcfce7';
+    customSmsStatus.style.color = '#166534';
+    customSmsStatus.style.border = '1px solid #86efac';
+  } else if (type === 'warning') {
+    customSmsStatus.style.background = '#fef3c7';
+    customSmsStatus.style.color = '#92400e';
+    customSmsStatus.style.border = '1px solid #fde68a';
+  } else if (type === 'error') {
+    customSmsStatus.style.background = '#fee2e2';
+    customSmsStatus.style.color = '#991b1b';
+    customSmsStatus.style.border = '1px solid #fca5a5';
+  } else {
+    customSmsStatus.style.background = '#f0f9ff';
+    customSmsStatus.style.color = '#0369a1';
+    customSmsStatus.style.border = '1px solid #bae6fd';
+  }
+}
+
+/**
+ * Load saved applications into quick-load dropdown
+ */
+async function loadSavedApplications() {
+  if (!selectSavedApp) return;
+
+  let apps = [];
   try {
-    const res = await fetch('/api/sms/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient, body, type: 'CUSTOM' })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      if (customSmsStatus) {
-        customSmsStatus.style.color = '#15803d';
-        customSmsStatus.textContent = `✅ Dispatched to phone! Teletalk SIM is sending now.`;
-        setTimeout(() => { if (customSmsStatus) customSmsStatus.textContent = ''; }, 6000);
-      }
-      showSmsToast(`SMS dispatched to phone -> ${recipient}!`);
-      customBody.value = '';
-      await fetchBridgeState();
-    } else {
-      if (customSmsStatus) {
-        customSmsStatus.style.color = '#b91c1c';
-        customSmsStatus.textContent = `Error: ${data.error}`;
-      }
-      alert('Error: ' + data.error);
-    }
-  } catch (err) {
-    if (customSmsStatus) {
-      customSmsStatus.style.color = '#b91c1c';
-      customSmsStatus.textContent = `Network error: ${err.message}`;
-    }
-    alert('Failed to send: ' + err.message);
-  } finally {
-    sendCustomSmsBtn.disabled = false;
-  }
-});
-
-/**
- * SMS Feed Filters & Search
- */
-function updateFilterButtons() {
-  if (filterAllBtn) filterAllBtn.className = currentFilter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-  if (filter16222Btn) filter16222Btn.className = currentFilter === '16222' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-  if (filterSentBtn) filterSentBtn.className = currentFilter === 'sent' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-}
-
-if (filterAllBtn) {
-  filterAllBtn.addEventListener('click', () => {
-    currentFilter = 'all';
-    updateFilterButtons();
-    renderMessages(bridgeState.messages || []);
-  });
-}
-
-if (filter16222Btn) {
-  filter16222Btn.addEventListener('click', () => {
-    currentFilter = '16222';
-    updateFilterButtons();
-    renderMessages(bridgeState.messages || []);
-  });
-}
-
-if (filterSentBtn) {
-  filterSentBtn.addEventListener('click', () => {
-    currentFilter = 'sent';
-    updateFilterButtons();
-    renderMessages(bridgeState.messages || []);
-  });
-}
-
-if (refreshFeedBtn) {
-  refreshFeedBtn.addEventListener('click', async () => {
-    refreshFeedBtn.disabled = true;
-    refreshFeedBtn.textContent = '⏳ ...';
-    await fetchBridgeState();
-    refreshFeedBtn.textContent = '🔄 Refresh';
-    refreshFeedBtn.disabled = false;
-    showSmsToast('SMS feed updated from phone gateway!');
-  });
-}
-
-if (smsSearchInput) {
-  smsSearchInput.addEventListener('input', (e) => {
-    currentSearch = e.target.value.trim();
-    renderMessages(bridgeState.messages || []);
-  });
-}
-
-/**
- * Instant Simulators
- */
-simulatePinReplyBtn.addEventListener('click', async () => {
-  const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-  const uid = (userIdInput.value || '7A8B9C').trim().toUpperCase();
-  const name = applicantNameInput.value.trim() || 'MD HABIBUR RAHMAN';
-
-  try {
-    const res = await fetch('/api/sms/simulate-reply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'PIN_NOTIFICATION', orgCode: org, userId: uid, applicantName: name })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      await fetchBridgeState();
-    }
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-simulatePassReplyBtn.addEventListener('click', async () => {
-  const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
-  const uid = (userIdInput.value || '7A8B9C').trim().toUpperCase();
-
-  try {
-    const res = await fetch('/api/sms/simulate-reply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'PAYMENT_CONFIRMATION', orgCode: org, userId: uid })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      await fetchBridgeState();
-    }
-  } catch (e) {
-    alert(e.message);
-  }
-});
-
-/**
- * Refresh QR Code / New Pairing Token
- */
-if (refreshQrBtn) {
-  refreshQrBtn.addEventListener('click', () => {
-    loadQrCode(true);
-  });
-}
-
-/**
- * Copy Pairing Code
- */
-if (copyTokenBtn) {
-  copyTokenBtn.addEventListener('click', async () => {
-    const code = pairingTokenCode ? pairingTokenCode.textContent.trim() : bridgeState.pairingToken;
-    if (!code) return;
-    try {
-      await navigator.clipboard.writeText(code);
-      const originalText = copyTokenBtn.innerHTML;
-      copyTokenBtn.innerHTML = '✅ Copied!';
-      setTimeout(() => {
-        copyTokenBtn.innerHTML = originalText;
-      }, 2000);
-    } catch (e) {
-      alert('Pairing Code: ' + code);
-    }
-  });
-}
-
-/**
- * Copy Mobile Companion Link
- */
-if (copyMobileLinkBtn) {
-  copyMobileLinkBtn.addEventListener('click', async () => {
-    const link = directMobileLink ? directMobileLink.href : window.location.origin + '/mobile-sms-bridge.html?token=' + bridgeState.pairingToken;
-    try {
-      await navigator.clipboard.writeText(link);
-      const originalText = copyMobileLinkBtn.innerHTML;
-      copyMobileLinkBtn.innerHTML = '✅ Copied!';
-      setTimeout(() => {
-        copyMobileLinkBtn.innerHTML = originalText;
-      }, 2000);
-    } catch (e) {
-      alert('Link: ' + link);
-    }
-  });
-}
-
-/**
- * Toggle QR view when phone is connected
- */
-if (toggleQrModalBtn) {
-  toggleQrModalBtn.addEventListener('click', () => {
-    if (deviceDisconnectedView) {
-      const isHidden = window.getComputedStyle(deviceDisconnectedView).display === 'none';
-      deviceDisconnectedView.style.display = isHidden ? 'flex' : 'none';
-      toggleQrModalBtn.textContent = isHidden ? 'Hide QR Code' : 'Show QR Code';
-      if (isHidden) {
-        loadQrCode(false);
-      }
-    }
-  });
-}
-
-/**
- * Unpair device
- */
-unpairDeviceBtn.addEventListener('click', async () => {
-  if (confirm('Unlink this mobile phone from the SMS gateway?')) {
-    try {
-      await fetch('/api/sms/unpair', { method: 'POST' });
-      await loadQrCode();
-      await fetchBridgeState();
-    } catch (e) {
-      alert(e.message);
-    }
-  }
-});
-
-refreshStateBtn.addEventListener('click', () => {
-  fetchBridgeState();
-});
-
-// Wi-Fi Setup Event Listeners
-if (applyWifiIpBtn) {
-  applyWifiIpBtn.addEventListener('click', () => {
-    const ip = (wifiIpInput?.value || '').trim();
-    const port = (wifiPortInput?.value || '3000').trim();
-    if (!ip) {
-      alert('Please enter your computer\'s Wi-Fi IP address (e.g. 192.168.1.15).');
-      return;
-    }
-    const host = port ? `${ip}:${port}` : ip;
-    applyCustomWifiHost(host);
-  });
-}
-
-if (resetLocalhostBtn) {
-  resetLocalhostBtn.addEventListener('click', () => {
-    if (wifiIpInput) wifiIpInput.value = '';
-    applyCustomWifiHost('');
-  });
-}
-
-if (wifiIpInput) {
-  wifiIpInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      applyWifiIpBtn?.click();
-    }
-  });
-}
-
-// Direct Scan-to-Send & Parser Event Listeners
-if (copyStep1SmsBtn) {
-  copyStep1SmsBtn.addEventListener('click', () => {
-    const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
-    const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
-    copyToClipboard(`${org} ${uid}`, '1st SMS text copied!');
-  });
-}
-
-if (copy16222Btn) {
-  copy16222Btn.addEventListener('click', () => {
-    copyToClipboard('16222', 'Recipient 16222 copied!');
-  });
-}
-
-if (copyStep2SmsBtn) {
-  copyStep2SmsBtn.addEventListener('click', () => {
-    const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
-    const pin = manualPinInput?.value?.trim() || currentDetectedPin || '12345678';
-    copyToClipboard(`${org} YES ${pin}`, 'Confirmation SMS copied!');
-  });
-}
-
-if (markStep1SentBtn) {
-  markStep1SentBtn.addEventListener('click', () => {
-    step1Status.textContent = '✅ Sent from phone (marked manually)';
-    step1Status.style.color = 'var(--color-success)';
-    step1Card.classList.add('wizard-step--completed');
-    step2Card.classList.add('wizard-step--active');
-    showSmsToast('Step 1 marked as sent!');
-  });
-}
-
-if (markStep2SentBtn) {
-  markStep2SentBtn.addEventListener('click', () => {
-    step2Status.textContent = '✅ Confirmation SMS sent from phone';
-    step2Status.style.color = 'var(--color-success)';
-    step2Card.classList.add('wizard-step--completed');
-    step3Card.classList.add('wizard-step--active');
-    showSmsToast('Step 2 marked as sent!');
-  });
-}
-
-if (parseIncomingBtn) {
-  parseIncomingBtn.addEventListener('click', async () => {
-    const raw = (incomingSmsTextarea?.value || '').trim();
-    if (!raw) {
-      alert('Please paste the SMS text from 16222 or enter your 8-digit PIN.');
-      incomingSmsTextarea?.focus();
-      return;
-    }
-
-    parseIncomingBtn.disabled = true;
-    parseIncomingBtn.innerHTML = '<span>⏳</span> Parsing...';
-
-    try {
-      const res = await fetch('/api/sms/incoming', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sender: '16222',
-          body: raw
-        })
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      apps = await new Promise(resolve => {
+        chrome.storage.local.get(['applications'], res => resolve(res.applications || []));
       });
-      const data = await res.json();
-      if (data.ok) {
-        const parsed = data.message?.parsed;
-        if (parseFeedbackMsg) {
-          parseFeedbackMsg.style.display = 'block';
-          if (parsed?.pin) {
-            parseFeedbackMsg.style.background = '#ecfdf5';
-            parseFeedbackMsg.style.color = '#065f46';
-            parseFeedbackMsg.style.border = '1px solid #a7f3d0';
-            parseFeedbackMsg.innerHTML = `✅ <strong>PIN Detected: ${parsed.pin}</strong> (Fee: Tk. ${parsed.fee || '220'}). Step 2 is ready!`;
-            manualPinInput.value = parsed.pin;
-            currentDetectedPin = parsed.pin;
-            sendStep2Btn.disabled = false;
-            updatePreviews();
-            showSmsToast(`PIN ${parsed.pin} extracted successfully!`);
-          } else if (parsed?.password) {
-            parseFeedbackMsg.style.background = '#eff6ff';
-            parseFeedbackMsg.style.color = '#1e40af';
-            parseFeedbackMsg.style.border = '1px solid #bfdbfe';
-            parseFeedbackMsg.innerHTML = `🎉 <strong>Payment Confirmed!</strong> Password: <strong>${parsed.password}</strong>`;
-            showSmsToast('Payment confirmation password extracted!');
-          } else {
-            parseFeedbackMsg.style.background = '#fef3c7';
-            parseFeedbackMsg.style.color = '#92400e';
-            parseFeedbackMsg.style.border = '1px solid #fde68a';
-            parseFeedbackMsg.innerHTML = `⚠️ SMS recorded. If a PIN was included, please type it in the "Enter PIN" box.`;
-          }
+    }
+  } catch (e) {}
+
+  if (!apps || apps.length === 0) {
+    try {
+      const raw = localStorage.getItem('applications');
+      if (raw) apps = JSON.parse(raw);
+    } catch (e) {}
+  }
+
+  if (Array.isArray(apps) && apps.length > 0) {
+    selectSavedApp.innerHTML = '<option value="">-- Choose an application to auto-fill SMS --</option>';
+    apps.forEach(app => {
+      const opt = document.createElement('option');
+      opt.value = app.id || app.userId;
+      const org = app.orgCode || 'BPSC';
+      const uid = app.userId || 'APP';
+      const post = app.jobPost || app.title || '';
+      opt.textContent = `${org} - ${uid} (${post.substring(0, 24)})`;
+      opt.dataset.org = org;
+      opt.dataset.uid = uid;
+      selectSavedApp.appendChild(opt);
+    });
+  }
+}
+
+/**
+ * Initialize all event listeners and state
+ */
+async function init() {
+  // 1. Load and render local messages immediately
+  feedMessages = await loadLocalMessages();
+  renderFeed();
+
+  // 2. Setup Saved Applications dropdown
+  await loadSavedApplications();
+  if (selectSavedApp) {
+    selectSavedApp.addEventListener('change', () => {
+      const selectedOpt = selectSavedApp.selectedOptions[0];
+      if (selectedOpt && selectedOpt.dataset && selectedOpt.dataset.uid) {
+        const org = selectedOpt.dataset.org || 'BPSC';
+        const uid = selectedOpt.dataset.uid;
+        if (customBody) {
+          customBody.value = `${org} ${uid}`;
+          updateCharCount();
+          updateSmsLinkAndQr();
         }
-        await fetchBridgeState();
-      } else {
-        alert('Error: ' + data.error);
       }
-    } catch (err) {
-      alert('Network error: ' + err.message);
-    } finally {
-      parseIncomingBtn.disabled = false;
-      parseIncomingBtn.innerHTML = '<span>⚡</span> Extract &amp; Proceed to Step 2';
-    }
-  });
+    });
+  }
+
+  // 3. Quick template format chips
+  if (chip1stSms) {
+    chip1stSms.addEventListener('click', () => {
+      if (customBody) {
+        customBody.value = 'BPSC 7A8B9C';
+        updateCharCount();
+        updateSmsLinkAndQr();
+        customBody.focus();
+      }
+    });
+  }
+
+  if (chip2ndSms) {
+    chip2ndSms.addEventListener('click', () => {
+      if (customBody) {
+        customBody.value = 'BPSC YES 87654321';
+        updateCharCount();
+        updateSmsLinkAndQr();
+        customBody.focus();
+      }
+    });
+  }
+
+  if (chipHelpSms) {
+    chipHelpSms.addEventListener('click', () => {
+      if (customBody) {
+        customBody.value = '16222 HELP';
+        updateCharCount();
+        updateSmsLinkAndQr();
+        customBody.focus();
+      }
+    });
+  }
+
+  // 4. Character count and input updates
+  if (customBody) {
+    customBody.addEventListener('input', () => {
+      updateCharCount();
+      updateSmsLinkAndQr();
+    });
+  }
+
+  if (customRecipient) {
+    customRecipient.addEventListener('input', () => {
+      updateSmsLinkAndQr();
+    });
+  }
+
+  // 5. Send & Copy buttons
+  if (sendCustomSmsBtn) {
+    sendCustomSmsBtn.addEventListener('click', handleSendCustomSms);
+  }
+
+  if (copyCustomSmsBtn) {
+    copyCustomSmsBtn.addEventListener('click', () => {
+      const body = (customBody && customBody.value.trim()) || '';
+      if (!body) {
+        showToast('Please enter an SMS body to copy');
+        return;
+      }
+      navigator.clipboard.writeText(body);
+      showToast('📋 Copied SMS text to clipboard!');
+    });
+  }
+
+  // 6. QR Code Toggle
+  if (toggleQrBtn && composerQrPanel) {
+    toggleQrBtn.addEventListener('click', () => {
+      const isHidden = composerQrPanel.style.display === 'none';
+      composerQrPanel.style.display = isHidden ? 'block' : 'none';
+      toggleQrBtn.classList.toggle('btn-primary', isHidden);
+      toggleQrBtn.classList.toggle('btn-secondary', !isHidden);
+      if (isHidden) {
+        updateSmsLinkAndQr();
+      }
+    });
+  }
+
+  // 7. Feed Filter Buttons
+  function setFeedFilter(filter) {
+    currentFilter = filter;
+    if (filterAllBtn) filterAllBtn.className = filter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    if (filter16222Btn) filter16222Btn.className = filter === '16222' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    if (filterSentBtn) filterSentBtn.className = filter === 'sent' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    renderFeed();
+  }
+
+  if (filterAllBtn) filterAllBtn.addEventListener('click', () => setFeedFilter('all'));
+  if (filter16222Btn) filter16222Btn.addEventListener('click', () => setFeedFilter('16222'));
+  if (filterSentBtn) filterSentBtn.addEventListener('click', () => setFeedFilter('sent'));
+
+  // 8. Search input
+  if (smsSearchInput) {
+    smsSearchInput.addEventListener('input', (e) => {
+      currentSearch = (e.target.value || '').trim();
+      renderFeed();
+    });
+  }
+
+  // 9. Feed Refresh & Clear
+  if (refreshFeedBtn) {
+    refreshFeedBtn.addEventListener('click', async () => {
+      refreshFeedBtn.disabled = true;
+      refreshFeedBtn.innerHTML = '<span>🔄</span> Syncing...';
+      await checkServerStatus();
+      refreshFeedBtn.disabled = false;
+      refreshFeedBtn.innerHTML = '<span>🔄</span> Refresh';
+      showToast('🔄 Feed refreshed!');
+    });
+  }
+
+  if (refreshStateBtn) {
+    refreshStateBtn.addEventListener('click', async () => {
+      await checkServerStatus();
+      showToast('🔄 Status updated');
+    });
+  }
+
+  if (clearFeedBtn) {
+    clearFeedBtn.addEventListener('click', async () => {
+      if (confirm('Clear all messages from your Live Feed?')) {
+        feedMessages = [];
+        await saveLocalMessages([]);
+        renderFeed();
+        showToast('🗑️ Message history cleared');
+      }
+    });
+  }
+
+  // 10. Server Settings Config
+  if (toggleServerConfigBtn && serverConfigDetails) {
+    toggleServerConfigBtn.addEventListener('click', () => {
+      const isHidden = serverConfigDetails.style.display === 'none';
+      serverConfigDetails.style.display = isHidden ? 'block' : 'none';
+      if (isHidden && customServerUrlInput) {
+        customServerUrlInput.value = localStorage.getItem(STORAGE_KEY_CUSTOM_HOST) || getApiBaseUrl();
+      }
+    });
+  }
+
+  if (serverStatusPill && serverConfigDetails) {
+    serverStatusPill.addEventListener('click', () => {
+      serverConfigDetails.style.display = 'block';
+      if (customServerUrlInput) {
+        customServerUrlInput.value = localStorage.getItem(STORAGE_KEY_CUSTOM_HOST) || getApiBaseUrl();
+        customServerUrlInput.focus();
+      }
+    });
+  }
+
+  if (saveServerUrlBtn && customServerUrlInput) {
+    saveServerUrlBtn.addEventListener('click', async () => {
+      const val = customServerUrlInput.value.trim();
+      if (val) {
+        localStorage.setItem(STORAGE_KEY_CUSTOM_HOST, val);
+        showToast(`Saved Gateway: ${val}`);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_CUSTOM_HOST);
+        showToast('Reset Gateway to default');
+      }
+      if (serverConfigDetails) serverConfigDetails.style.display = 'none';
+      await checkServerStatus();
+    });
+  }
+
+  if (resetServerUrlBtn) {
+    resetServerUrlBtn.addEventListener('click', async () => {
+      localStorage.removeItem(STORAGE_KEY_CUSTOM_HOST);
+      if (customServerUrlInput) customServerUrlInput.value = '';
+      if (serverConfigDetails) serverConfigDetails.style.display = 'none';
+      showToast('Reset Gateway to default localhost:3000');
+      await checkServerStatus();
+    });
+  }
+
+  // Initial update
+  updateCharCount();
+  updateSmsLinkAndQr();
+
+  // Check server status
+  await checkServerStatus();
+
+  // Background polling every 5 seconds
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(checkServerStatus, 5000);
 }
 
-if (pasteSamplePinBtn) {
-  pasteSamplePinBtn.addEventListener('click', () => {
-    if (incomingSmsTextarea) {
-      const name = applicantNameInput?.value?.trim() || 'MD HABIBUR RAHMAN';
-      const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
-      const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
-      incomingSmsTextarea.value = `${name}, Tk. 220 will be charged as application fee for ${org}. Your PIN is 54891234. To pay fee type ${org} YES 54891234 and send to 16222.`;
-    }
-    parseIncomingBtn?.click();
-  });
+// Start on DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
 }
-
-if (pasteSamplePassBtn) {
-  pasteSamplePassBtn.addEventListener('click', () => {
-    if (incomingSmsTextarea) {
-      const name = applicantNameInput?.value?.trim() || 'MD HABIBUR RAHMAN';
-      const uid = (userIdInput?.value || '7A8B9C').trim().toUpperCase();
-      const org = (orgCodeInput?.value || 'BPSC').trim().toUpperCase();
-      incomingSmsTextarea.value = `Congratulations ${name}! Payment completed successfully for ${org} (${uid}). User ID is ${uid} and Password is BD${Math.floor(100000 + Math.random() * 900000)}.`;
-    }
-    parseIncomingBtn?.click();
-  });
-}
-
-// Initialization
-loadSavedApplications();
-initWifiConfig();
-loadQrCode();
-fetchBridgeState();
-updatePreviews();
-renderDirectSmsQrs();
-
-// Periodic state poll
-setInterval(fetchBridgeState, 3000);

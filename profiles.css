@@ -45,7 +45,7 @@ body {
 }
 
 .page {
-  max-width: 1040px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--spacing-xl);
 }
@@ -65,7 +65,7 @@ body {
 
 .page__layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 320px 1fr;
   gap: var(--spacing-xl);
   align-items: start;
 }
@@ -75,6 +75,132 @@ body {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Production Search & Filter Styles */
+.profile-search-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile-search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-search-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.profile-count-badge {
+  font-size: 11px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 1px 8px;
+}
+
+.profile-search-bar {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.profile-search-input-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.profile-search-icon {
+  position: absolute;
+  left: 8px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.profile-search-input {
+  width: 100%;
+  padding: 7px 24px 7px 26px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.profile-search-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.profile-search-clear {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.profile-search-clear:hover {
+  background: #f1f5f9;
+  color: var(--color-text);
+}
+
+.profile-search-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.profile-search-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  background: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.profile-reset-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.profile-reset-link:hover {
+  color: var(--color-primary-hover);
 }
 
 .profile-list__items {
@@ -83,7 +209,10 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-xs);
+  gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .profile-list__item {
@@ -91,52 +220,125 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  transition: background-color 0.15s ease;
+  background: #ffffff;
+  transition: all 0.15s ease;
 }
 
 .profile-list__item:hover {
-  background: var(--color-secondary);
+  border-color: #94a3b8;
+  background: #f8fafc;
 }
 
 .profile-list__item--active {
-  background: var(--color-primary);
+  background: #eff6ff;
+  border-color: var(--color-primary);
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
 }
 
 .profile-list__button {
   flex: 1;
   text-align: left;
-  padding: var(--spacing-md);
+  padding: 8px 10px;
   border: none;
   border-radius: var(--radius);
   background: transparent;
   color: var(--color-text);
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.profile-item__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 4px;
+}
+
+.profile-item__name {
+  font-weight: 700;
+  color: var(--color-text);
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 0.15s ease;
 }
 
-.profile-list__item--active .profile-list__button {
-  color: #ffffff;
+.profile-item__badge {
+  font-size: 10px;
   font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.profile-item__badge--single {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.profile-item__badge--married {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.profile-item__fullname {
+  font-size: 11px;
+  color: #334155;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-item__meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-item__highlight {
+  background: #fef08a;
+  color: #854d0e;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-weight: 700;
+}
+
+.profile-list__item--active .profile-item__name {
+  color: #1e40af;
+}
+
+.profile-list__item--active .profile-item__fullname {
+  color: #1d4ed8;
 }
 
 .profile-list__delete-btn {
   background: transparent;
   border: none;
   color: var(--color-text-muted);
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   border-radius: 6px;
-  font-size: 14px;
-  margin-right: 4px;
+  font-size: 13px;
+  margin-right: 6px;
   flex-shrink: 0;
   transition: all 0.15s ease;
 }
@@ -144,15 +346,6 @@ body {
 .profile-list__delete-btn:hover {
   background: #fee2e2;
   color: #b91c1c;
-}
-
-.profile-list__item--active .profile-list__delete-btn {
-  color: #e2e8f0;
-}
-
-.profile-list__item--active .profile-list__delete-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
 }
 
 .confirm-modal-overlay {

@@ -15,6 +15,19 @@
       "createdAt": "2026-09-03T10:52:23.253Z",
       "sentAt": "2026-09-03T10:52:37.573Z",
       "simUsed": "Teletalk SIM"
+    },
+    {
+      "id": "job_1789040423313_o9ao",
+      "recipient": "16222",
+      "body": "BPSC 7A8B9C",
+      "type": "CUSTOM",
+      "orgCode": "",
+      "userId": "",
+      "pin": "",
+      "applicationId": "",
+      "status": "PENDING",
+      "createdAt": "2026-09-10T11:40:23.313Z",
+      "sentAt": null
     }
   ],
   "messages": [
@@ -107,6 +120,16 @@
         "suggestedReply": null
       },
       "timestamp": "2026-09-05T07:18:13.438Z"
+    },
+    {
+      "id": "msg_1789040423313",
+      "direction": "outgoing",
+      "status": "QUEUED_FOR_PHONE",
+      "jobId": "job_1789040423313_o9ao",
+      "sender": "Desktop Extension",
+      "recipient": "16222",
+      "body": "BPSC 7A8B9C",
+      "timestamp": "2026-09-10T11:40:23.313Z"
     }
   ]
 }

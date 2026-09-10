@@ -110,11 +110,23 @@ const importJsonInput = document.getElementById('import-json-input');
 const importJsonBtn = document.getElementById('import-json-btn');
 const importStatusEl = document.getElementById('import-status');
 const exportJsonBtn = document.getElementById('export-json-btn');
+const backupAllBtn = document.getElementById('backup-all-btn');
+
+// Production Search elements
+const profileSearchInput = document.getElementById('profile-search-input');
+const profileSearchBtn = document.getElementById('profile-search-btn');
+const profileSearchClearBtn = document.getElementById('profile-search-clear-btn');
+const profileSearchStatus = document.getElementById('profile-search-status');
+const profileSearchStatusText = document.getElementById('profile-search-status-text');
+const profileSearchResetLink = document.getElementById('profile-search-reset-link');
+const profileCountBadge = document.getElementById('profile-count-badge');
+const profileListNoMatchEl = document.getElementById('profile-list-no-match');
 
 const ALL_PROFILE_FIELD_KEYS = [...TEXT_FIELD_KEYS, ...CHECKBOX_FIELD_KEYS];
 
 let profiles = [];
 let selectedProfileId = null;
+let profileSearchQuery = '';
 let pendingImportFile = null;
 
 /**
@@ -235,17 +247,121 @@ async function confirmDeleteProfile() {
 }
 
 /**
- * Renders the profile list sidebar based on current profiles array.
+ * Normalizes phone numbers for flexible search (e.g. +88017... -> 017...).
+ */
+function normalizeSearchDigits(val) {
+  if (!val) return '';
+  return String(val).replace(/[^0-9]/g, '').replace(/^880/, '0');
+}
+
+/**
+ * Escapes HTML characters to prevent XSS.
+ */
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Highlights matched query substring inside text.
+ */
+function highlightMatch(text, query) {
+  if (!text) return '';
+  const str = String(text);
+  if (!query || !query.trim()) return escapeHtml(str);
+  const q = query.trim();
+  const lowerText = str.toLowerCase();
+  const lowerQ = q.toLowerCase();
+  const idx = lowerText.indexOf(lowerQ);
+  if (idx === -1) return escapeHtml(str);
+  return `${escapeHtml(str.slice(0, idx))}<mark class="profile-item__highlight">${escapeHtml(str.slice(idx, idx + q.length))}</mark>${escapeHtml(str.slice(idx + q.length))}`;
+}
+
+/**
+ * Checks if a profile matches the search query (name, mobile, NID, etc.).
+ */
+function profileMatchesQuery(profile, query) {
+  if (!query || !query.trim()) return true;
+  const q = query.trim().toLowerCase();
+
+  // Name checks
+  const name = (profile.name || '').toLowerCase();
+  const fullName = (profile.fullName || '').toLowerCase();
+  const nameBn = (profile.nameBn || '').toLowerCase();
+  const fatherName = (profile.fatherName || '').toLowerCase();
+  const motherName = (profile.motherName || '').toLowerCase();
+  if (name.includes(q) || fullName.includes(q) || nameBn.includes(q) || fatherName.includes(q) || motherName.includes(q)) {
+    return true;
+  }
+
+  // Mobile checks
+  const qDigits = normalizeSearchDigits(q);
+  const mobile = normalizeSearchDigits(profile.mobile);
+  const mobileConfirm = normalizeSearchDigits(profile.mobileConfirm);
+  if (qDigits.length >= 2) {
+    if (mobile.includes(qDigits) || mobileConfirm.includes(qDigits)) {
+      return true;
+    }
+  }
+
+  // NID / Identification checks
+  const nid = (profile.nidNo || '').toLowerCase();
+  if (nid.includes(q)) {
+    return true;
+  }
+
+  // Email check
+  const email = (profile.email || '').toLowerCase();
+  if (email.includes(q)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Renders the profile list sidebar based on current profiles array and search query.
  */
 function renderProfileList() {
   profileListEl.innerHTML = '';
 
+  // Update total profile count badge
+  if (profileCountBadge) {
+    profileCountBadge.textContent = `${profiles.length} Profiles`;
+  }
+
+  const query = (profileSearchQuery || '').trim();
+  const filtered = profiles.filter((p) => profileMatchesQuery(p, query));
+
+  if (profileSearchClearBtn) {
+    profileSearchClearBtn.hidden = !query;
+  }
+
+  if (query) {
+    if (profileSearchStatus && profileSearchStatusText) {
+      profileSearchStatus.hidden = false;
+      profileSearchStatusText.textContent = `Found ${filtered.length} of ${profiles.length} profiles`;
+    }
+  } else {
+    if (profileSearchStatus) {
+      profileSearchStatus.hidden = true;
+    }
+  }
+
   if (profiles.length === 0) {
     profileListEmptyEl.hidden = false;
+    if (profileListNoMatchEl) profileListNoMatchEl.hidden = true;
+  } else if (filtered.length === 0) {
+    profileListEmptyEl.hidden = true;
+    if (profileListNoMatchEl) profileListNoMatchEl.hidden = false;
   } else {
     profileListEmptyEl.hidden = true;
+    if (profileListNoMatchEl) profileListNoMatchEl.hidden = true;
 
-    for (const profile of profiles) {
+    for (const profile of filtered) {
       const li = document.createElement('li');
       li.className = 'profile-list__item';
       if (profile.id === selectedProfileId) {
@@ -255,8 +371,35 @@ function renderProfileList() {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'profile-list__button';
-      button.textContent = profile.name || 'Unnamed profile';
-      button.title = profile.fullName ? `${profile.name} (${profile.fullName})` : (profile.name || '');
+      button.title = `${profile.name || 'Unnamed'}${profile.fullName ? ` (${profile.fullName})` : ''} - Click to edit`;
+
+      const maritalVal = (profile.maritalStatus && profile.maritalStatus.toLowerCase() === 'unmarried')
+        ? 'Single'
+        : (profile.maritalStatus || 'Single');
+      const isSingle = maritalVal.toLowerCase() === 'single';
+
+      const headerRow = document.createElement('div');
+      headerRow.className = 'profile-item__header-row';
+      headerRow.innerHTML = `
+        <span class="profile-item__name">${highlightMatch(profile.name || 'Unnamed', query)}</span>
+        <span class="profile-item__badge ${isSingle ? 'profile-item__badge--single' : 'profile-item__badge--married'}">${escapeHtml(maritalVal)}</span>
+      `;
+      button.appendChild(headerRow);
+
+      if (profile.fullName) {
+        const fullRow = document.createElement('div');
+        fullRow.className = 'profile-item__fullname';
+        fullRow.innerHTML = highlightMatch(profile.fullName, query);
+        button.appendChild(fullRow);
+      }
+
+      const metaRow = document.createElement('div');
+      metaRow.className = 'profile-item__meta-row';
+      const phoneText = profile.mobile ? `📱 ${highlightMatch(profile.mobile, query)}` : '📱 No mobile';
+      const nidText = profile.nidNo ? `• 🆔 ${highlightMatch(profile.nidNo, query)}` : '';
+      metaRow.innerHTML = `${phoneText} ${nidText}`;
+      button.appendChild(metaRow);
+
       button.addEventListener('click', () => selectProfile(profile.id));
       li.appendChild(button);
 
@@ -276,6 +419,17 @@ function renderProfileList() {
     }
   }
 
+  // Update export button state
+  if (exportJsonBtn) {
+    const active = profiles.find((p) => p.id === selectedProfileId);
+    if (active) {
+      exportJsonBtn.hidden = false;
+      exportJsonBtn.textContent = `Download "${active.name || 'Profile'}" (JSON)`;
+    } else {
+      exportJsonBtn.hidden = true;
+    }
+  }
+
   renderCopyFromProfileOptions();
 }
 
@@ -290,7 +444,8 @@ function renderCopyFromProfileOptions() {
   for (const profile of profiles) {
     const option = document.createElement('option');
     option.value = profile.id;
-    option.textContent = profile.name || 'Unnamed profile';
+    const phonePart = profile.mobile ? ` (${profile.mobile})` : '';
+    option.textContent = `${profile.name || 'Unnamed profile'}${phonePart}`;
     copyFromProfileSelect.appendChild(option);
   }
 
@@ -314,6 +469,11 @@ function populateForm(profile) {
     }
     if (key === 'nationality' && !profile.id && profile[key] === undefined) {
       input.value = 'Bangladeshi';
+      continue;
+    }
+    if (key === 'maritalStatus') {
+      const val = profile[key];
+      input.value = (val && val.toLowerCase() === 'unmarried') ? 'Single' : (val || '');
       continue;
     }
     input.value = profile[key] || '';
@@ -374,6 +534,10 @@ function readFormData() {
     }
   });
   data.customFields = customFields;
+
+  if (data.maritalStatus && data.maritalStatus.toLowerCase() === 'unmarried') {
+    data.maritalStatus = 'Single';
+  }
 
   return data;
 }
@@ -633,13 +797,29 @@ function addCustomFieldRow(key = '', value = '') {
 }
 
 /**
- * Loads all profiles from storage on page initialization.
+ * Loads all profiles from storage on page initialization and auto-migrates legacy values.
  * @returns {Promise<void>}
  */
 async function initialize() {
   closeDeleteModal();
   try {
     profiles = await sendMessage('GET_PROFILES');
+    if (!Array.isArray(profiles)) {
+      profiles = [];
+    }
+
+    // Auto-migrate legacy 'Unmarried' to 'Single' in stored profiles
+    for (const p of profiles) {
+      if (p && p.maritalStatus && p.maritalStatus.toLowerCase() === 'unmarried') {
+        p.maritalStatus = 'Single';
+        try {
+          await sendMessage('SAVE_PROFILE', p);
+        } catch (e) {
+          console.warn('Could not auto-migrate profile maritalStatus:', e);
+        }
+      }
+    }
+
     renderProfileList();
     if (!profiles || profiles.length === 0) {
       startNewProfile();
@@ -699,6 +879,207 @@ const addCustomFieldBtn = document.getElementById('add-custom-field-btn');
 if (addCustomFieldBtn) {
   addCustomFieldBtn.addEventListener('click', () => {
     addCustomFieldRow('', '');
+  });
+}
+
+// --- Search Event Listeners ---
+
+function handleSearchClick() {
+  const q = profileSearchInput ? profileSearchInput.value.trim() : '';
+  profileSearchQuery = q;
+  renderProfileList();
+}
+
+function handleSearchReset() {
+  if (profileSearchInput) {
+    profileSearchInput.value = '';
+  }
+  profileSearchQuery = '';
+  renderProfileList();
+}
+
+if (profileSearchBtn) {
+  profileSearchBtn.addEventListener('click', handleSearchClick);
+}
+
+if (profileSearchInput) {
+  profileSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchClick();
+    } else if (e.key === 'Escape') {
+      handleSearchReset();
+    }
+  });
+
+  profileSearchInput.addEventListener('input', () => {
+    profileSearchQuery = profileSearchInput.value;
+    renderProfileList();
+  });
+}
+
+if (profileSearchClearBtn) {
+  profileSearchClearBtn.addEventListener('click', handleSearchReset);
+}
+
+if (profileSearchResetLink) {
+  profileSearchResetLink.addEventListener('click', handleSearchReset);
+}
+
+// --- Data Backup & Transfer Handlers ---
+
+function downloadJsonFile(filename, data) {
+  const jsonStr = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+if (exportJsonBtn) {
+  exportJsonBtn.addEventListener('click', () => {
+    const active = profiles.find((p) => p.id === selectedProfileId);
+    if (!active) {
+      setFormStatus('No profile selected to export.', 'error');
+      return;
+    }
+    const safeName = (active.name || 'profile').toLowerCase().replace(/[^a-z0-9]/gi, '_');
+    downloadJsonFile(`${safeName}_profile.json`, active);
+    setFormStatus(`Exported "${active.name}" as JSON file.`, 'success');
+  });
+}
+
+if (backupAllBtn) {
+  backupAllBtn.addEventListener('click', () => {
+    if (!profiles || profiles.length === 0) {
+      setImportStatus('No profiles to backup yet.', 'error');
+      return;
+    }
+    const backupData = {
+      app: 'BD Job Autofill',
+      version: '1.5.0',
+      exportedAt: new Date().toISOString(),
+      count: profiles.length,
+      profiles: profiles
+    };
+    const dateStr = new Date().toISOString().slice(0, 10);
+    downloadJsonFile(`bd_job_autofill_profiles_backup_${dateStr}.json`, backupData);
+    setImportStatus(`Successfully backed up ${profiles.length} profiles!`, 'success');
+  });
+}
+
+if (importJsonInput) {
+  importJsonInput.addEventListener('change', () => {
+    const file = importJsonInput.files && importJsonInput.files[0];
+    pendingImportFile = file || null;
+    if (importJsonBtn) {
+      importJsonBtn.disabled = !file;
+    }
+    if (file) {
+      setImportStatus(`Selected: ${file.name}`, '');
+    } else {
+      setImportStatus('', '');
+    }
+  });
+}
+
+if (importJsonBtn) {
+  importJsonBtn.addEventListener('click', async () => {
+    if (!pendingImportFile) {
+      setImportStatus('Please select a JSON file first.', 'error');
+      return;
+    }
+
+    try {
+      importJsonBtn.disabled = true;
+      setImportStatus('Reading and validating JSON file...', '');
+
+      const text = await pendingImportFile.text();
+      const parsed = JSON.parse(text);
+
+      let importedList = [];
+      if (Array.isArray(parsed)) {
+        importedList = parsed;
+      } else if (parsed && Array.isArray(parsed.profiles)) {
+        importedList = parsed.profiles;
+      } else if (parsed && typeof parsed === 'object') {
+        importedList = [parsed];
+      } else {
+        throw new Error('Invalid JSON format: expected a profile object or an array of profiles.');
+      }
+
+      if (importedList.length === 0) {
+        throw new Error('No profile records found in the JSON file.');
+      }
+
+      let saveCount = 0;
+      for (const item of importedList) {
+        if (!item || typeof item !== 'object') continue;
+        const profileToSave = { ...item };
+        if (!profileToSave.id) {
+          profileToSave.id = generateProfileId();
+        }
+        if (!profileToSave.name) {
+          profileToSave.name = profileToSave.fullName || 'Imported Profile';
+        }
+        // Normalize marital status to Single
+        if (profileToSave.maritalStatus && profileToSave.maritalStatus.toLowerCase() === 'unmarried') {
+          profileToSave.maritalStatus = 'Single';
+        }
+
+        await sendMessage('SAVE_PROFILE', profileToSave);
+        saveCount++;
+      }
+
+      profiles = await sendMessage('GET_PROFILES');
+      renderProfileList();
+      setImportStatus(`Successfully imported ${saveCount} profile(s)!`, 'success');
+      importJsonInput.value = '';
+      pendingImportFile = null;
+      importJsonBtn.disabled = true;
+    } catch (err) {
+      setImportStatus(`Import failed: ${err.message}`, 'error');
+      if (importJsonBtn) importJsonBtn.disabled = false;
+    }
+  });
+}
+
+if (copyFromProfileBtn) {
+  copyFromProfileBtn.addEventListener('click', () => {
+    const sourceId = copyFromProfileSelect.value;
+    if (!sourceId) {
+      setImportStatus('Please select a profile to copy.', 'error');
+      return;
+    }
+    const source = profiles.find((p) => p.id === sourceId);
+    if (!source) {
+      setImportStatus('Selected profile not found.', 'error');
+      return;
+    }
+
+    const cloned = JSON.parse(JSON.stringify(source));
+    delete cloned.id;
+    cloned.name = `${source.name || 'Profile'} (Copy)`;
+    if (cloned.maritalStatus && cloned.maritalStatus.toLowerCase() === 'unmarried') {
+      cloned.maritalStatus = 'Single';
+    }
+
+    selectedProfileId = null;
+    formEmptyHintEl.hidden = true;
+    profileFormEl.hidden = false;
+    if (deleteProfileBtn) deleteProfileBtn.hidden = true;
+    if (deleteProfileTopBtn) deleteProfileTopBtn.hidden = true;
+    if (editorHeadingEl) editorHeadingEl.textContent = `Create New Profile (Copy of ${source.name || 'Profile'})`;
+    setFormStatus(`Copied details from "${source.name}". Edit and click "Save Profile" to save as new.`, 'success');
+    populateForm(cloned);
+    renderProfileList();
+    const nameField = document.getElementById('field-name');
+    if (nameField) nameField.focus();
   });
 }
 
@@ -1361,7 +1742,7 @@ function extractFieldsFromText(text) {
     /Marital\s*Status\s*[:\-]\s*(Married|Unmarried|Single|Divorced|Widowed)/i
   ]);
   if (maritalRaw) {
-    const normalized = /single/i.test(maritalRaw) ? 'Unmarried' : maritalRaw;
+    const normalized = /single|unmarried/i.test(maritalRaw) ? 'Single' : maritalRaw;
     data.maritalStatus = normalized[0].toUpperCase() + normalized.slice(1).toLowerCase();
   }
 

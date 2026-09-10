@@ -765,3 +765,128 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Two-column layout enhancement */
+.sms-layout--two-col {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .sms-layout--two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Server Status Pill */
+.server-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f1f5f9;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.server-status-pill:hover {
+  background: #e2e8f0;
+}
+.server-status-pill--online {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+.server-status-pill--offline {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.server-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #94a3b8;
+}
+.server-status-pill--online .server-status-dot {
+  background-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+}
+.server-status-pill--offline .server-status-dot {
+  background-color: #d97706;
+}
+
+/* Composer Form */
+.form-grid-composer {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.saved-app-loader {
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.gateway-config-bar {
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-top: 8px;
+}
+
+/* Extracted PIN Callout inside Feed Messages */
+.feed-pin-box {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.feed-pin-val {
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #065f46;
+  letter-spacing: 1px;
+}
+
+.feed-cred-box {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  font-size: 12px;
+  color: #1e40af;
+}
+
+.msg-bubble-16222 {
+  background: #ffffff;
+  border: 1px solid #bae6fd;
+  border-left: 4px solid #0284c7;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+
+.msg-bubble-outgoing {
+  background: #f0f9ff;
+  border: 1px solid #e0f2fe;
+  border-right: 4px solid #0284c7;
+}
+
+

@@ -196,6 +196,17 @@ function setSelectValue(element, value, expectedNumericResult) {
     }
   }
 
+  // Marital status equivalence: 'single' and 'unmarried' are interchangeable across job portals
+  if (target === 'single' || target === 'unmarried') {
+    for (const option of element.options) {
+      const optText = normalize(option.textContent);
+      const optVal = normalize(option.value);
+      if (optText === 'single' || optVal === 'single' || optText === 'unmarried' || optVal === 'unmarried') {
+        return applyOption(option);
+      }
+    }
+  }
+
   // Ambiguous "scale" values like a bare "GPA" or "Division" can match
   // several options at once (e.g. "GPA(out of 4)" AND "GPA(out of 5)").
   // When that happens, prefer the option whose scale (the number in

@@ -23,6 +23,9 @@ const popupDeleteConfirmBtn = document.getElementById('popup-delete-confirm-btn'
 const popupDeleteCancelBtn = document.getElementById('popup-delete-cancel-btn');
 const fillGraCheckbox = document.getElementById('fill-gra-checkbox');
 const fillMasCheckbox = document.getElementById('fill-mas-checkbox');
+const popupProfileSearch = document.getElementById('popup-profile-search');
+
+let allLoadedProfiles = [];
 
 // Profile keys that belong to each education section. Unchecking a section
 // in the popup excludes these keys from the autofill payload, so a repeat
@@ -129,6 +132,57 @@ function applySectionFilters(profile) {
 }
 
 /**
+ * Renders filtered profiles into the select dropdown.
+ * @param {string} query
+ * @param {string|null} activeIdToSelect
+ */
+function renderPopupProfileOptions(query = '', activeIdToSelect = null) {
+  profileSelect.innerHTML = '';
+  const q = (query || '').trim().toLowerCase();
+  const qDigits = q.replace(/[^0-9]/g, '').replace(/^880/, '0');
+
+  const filtered = allLoadedProfiles.filter(p => {
+    if (!q) return true;
+    const name = (p.name || '').toLowerCase();
+    const fullName = (p.fullName || '').toLowerCase();
+    const mobile = (p.mobile || '').replace(/[^0-9]/g, '').replace(/^880/, '0');
+    const nid = (p.nidNo || '').toLowerCase();
+    if (name.includes(q) || fullName.includes(q) || nid.includes(q)) return true;
+    if (qDigits && mobile.includes(qDigits)) return true;
+    return false;
+  });
+
+  if (filtered.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '❌ No matching profile found';
+    opt.disabled = true;
+    profileSelect.appendChild(opt);
+    autofillBtn.disabled = true;
+    return;
+  }
+
+  autofillBtn.disabled = false;
+  for (const profile of filtered) {
+    const option = document.createElement('option');
+    option.value = profile.id;
+    const mobileText = profile.mobile ? ` • ${profile.mobile}` : '';
+    const fullText = profile.fullName ? ` (${profile.fullName})` : '';
+    const statusText = profile.maritalStatus ? ` [${profile.maritalStatus}]` : '';
+    option.textContent = `${profile.name || 'Unnamed'}${fullText}${mobileText}${statusText}`;
+    profileSelect.appendChild(option);
+  }
+
+  const targetId = activeIdToSelect || profileSelect.value;
+  if (targetId && filtered.some(p => p.id === targetId)) {
+    profileSelect.value = targetId;
+  } else if (filtered.length > 0) {
+    profileSelect.value = filtered[0].id;
+    sendMessage('SET_ACTIVE_PROFILE', filtered[0].id).catch(() => {});
+  }
+}
+
+/**
  * Loads profiles into the select element and restores active selection.
  * @returns {Promise<void>}
  */
@@ -138,9 +192,10 @@ async function loadProfiles() {
     sendMessage('GET_ACTIVE_PROFILE')
   ]);
 
+  allLoadedProfiles = profiles || [];
   profileSelect.innerHTML = '';
 
-  if (profiles.length === 0) {
+  if (allLoadedProfiles.length === 0) {
     profileEmptyHint.hidden = false;
     profileSelect.disabled = true;
     autofillBtn.disabled = true;
@@ -151,19 +206,14 @@ async function loadProfiles() {
   profileSelect.disabled = false;
   autofillBtn.disabled = false;
 
-  for (const profile of profiles) {
-    const option = document.createElement('option');
-    option.value = profile.id;
-    option.textContent = profile.name || 'Unnamed profile';
-    profileSelect.appendChild(option);
-  }
-
   let selectedId = activeProfile ? activeProfile.id : null;
-  if (!selectedId || !profiles.some(p => p.id === selectedId)) {
-    selectedId = profiles[0].id;
+  if (!selectedId || !allLoadedProfiles.some(p => p.id === selectedId)) {
+    selectedId = allLoadedProfiles[0].id;
     await sendMessage('SET_ACTIVE_PROFILE', selectedId);
   }
-  profileSelect.value = selectedId;
+
+  const currentSearch = popupProfileSearch ? popupProfileSearch.value : '';
+  renderPopupProfileOptions(currentSearch, selectedId);
 }
 
 /**
@@ -508,6 +558,11 @@ async function handleConfirmDeletePopup() {
 }
 
 if (profileSelect) profileSelect.addEventListener('change', handleProfileChange);
+if (popupProfileSearch) {
+  popupProfileSearch.addEventListener('input', () => {
+    renderPopupProfileOptions(popupProfileSearch.value);
+  });
+}
 if (autofillBtn) autofillBtn.addEventListener('click', handleAutofillClick);
 if (manageProfilesBtn) manageProfilesBtn.addEventListener('click', openProfilesPage);
 if (manageApplicationsBtn) manageApplicationsBtn.addEventListener('click', openApplicationsPage);
