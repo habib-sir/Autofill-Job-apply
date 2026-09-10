@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -77,7 +78,15 @@ public class SmsGatewayService extends Service {
             pairingCode = getSharedPreferences("bd_sms_gateway_prefs", MODE_PRIVATE).getString("pairing_code", "");
         }
 
-        startForeground(NOTIFICATION_ID, buildForegroundNotification("Connected to Chrome Extension - Ready to send"));
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, buildForegroundNotification("Connected to Chrome Extension - Ready to send"), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(NOTIFICATION_ID, buildForegroundNotification("Connected to Chrome Extension - Ready to send"));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed startForeground: " + e.getMessage(), e);
+        }
         isRunning = true;
         isPolling = true;
 
@@ -209,7 +218,14 @@ public class SmsGatewayService extends Service {
     public static boolean sendSms(Context context, int subId, String recipient, String body) {
         try {
             SmsManager smsManager;
-            if (subId >= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                SmsManager base = context.getSystemService(SmsManager.class);
+                if (subId >= 0 && base != null) {
+                    smsManager = base.createForSubscriptionId(subId);
+                } else {
+                    smsManager = base;
+                }
+            } else if (subId >= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 smsManager = SmsManager.getSmsManagerForSubscriptionId(subId);
             } else {
                 smsManager = SmsManager.getDefault();
@@ -262,8 +278,11 @@ public class SmsGatewayService extends Service {
     }
 
     private void sendBroadcastLog(String message) {
-        Intent intent = new Intent("com.bdjob.smsgateway.LOG_EVENT");
-        intent.putExtra("log", message);
-        sendBroadcast(intent);
+        try {
+            Intent intent = new Intent("com.bdjob.smsgateway.LOG_EVENT");
+            intent.putExtra("log", message);
+            intent.setPackage(getPackageName());
+            sendBroadcast(intent);
+        } catch (Exception ignored) {}
     }
 }

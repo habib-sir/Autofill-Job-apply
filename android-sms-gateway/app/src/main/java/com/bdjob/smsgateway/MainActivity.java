@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -98,7 +99,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        registerReceiver(logReceiver, new IntentFilter("com.bdjob.smsgateway.LOG_EVENT"));
+        try {
+            IntentFilter filter = new IntentFilter("com.bdjob.smsgateway.LOG_EVENT");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(logReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(logReceiver, filter);
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "Failed to register logReceiver: " + e.getMessage());
+        }
         updateStatus();
     }
 
@@ -121,6 +131,11 @@ public class MainActivity extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.READ_PHONE_STATE);
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.READ_PHONE_NUMBERS);
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.POST_NOTIFICATIONS);
@@ -136,44 +151,74 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
-            loadSimCards();
-            appendLog("Permissions updated. SMS access ready.");
+            try {
+                loadSimCards();
+                appendLog("Permissions updated. SMS access ready.");
+            } catch (Exception e) {
+                Log.e("MainActivity", "Error after permissions: " + e.getMessage());
+            }
         }
     }
 
     private void loadSimCards() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-            return;
+        try {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                fallbackSimSlots();
+                return;
+            }
+
+            SubscriptionManager sm = (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
+            if (sm == null) {
+                fallbackSimSlots();
+                return;
+            }
+
+            List<SubscriptionInfo> subList = null;
+            try {
+                subList = sm.getActiveSubscriptionInfoList();
+            } catch (SecurityException se) {
+                Log.w("MainActivity", "ActiveSubscriptionInfoList permission check deferred: " + se.getMessage());
+            }
+
+            List<String> simLabels = new ArrayList<>();
+            simSubscriptionIds.clear();
+
+            if (subList != null && !subList.isEmpty()) {
+                for (SubscriptionInfo info : subList) {
+                    String carrier = info.getCarrierName() != null ? info.getCarrierName().toString() : "SIM " + (info.getSimSlotIndex() + 1);
+                    simLabels.add(carrier + " (Slot " + (info.getSimSlotIndex() + 1) + ")");
+                    simSubscriptionIds.add(info.getSubscriptionId());
+                }
+            } else {
+                fallbackSimSlots();
+                return;
+            }
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, simLabels);
+            spSimSlot.setAdapter(adapter);
+
+            // Auto-select Teletalk if present
+            for (int i = 0; i < simLabels.size(); i++) {
+                if (simLabels.get(i).toLowerCase().contains("teletalk")) {
+                    spSimSlot.setSelection(i);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            Log.e("MainActivity", "loadSimCards exception: " + e.getMessage(), e);
+            fallbackSimSlots();
         }
+    }
 
-        SubscriptionManager sm = (SubscriptionManager) getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        if (sm == null) return;
-
-        List<SubscriptionInfo> subList = sm.getActiveSubscriptionInfoList();
+    private void fallbackSimSlots() {
         List<String> simLabels = new ArrayList<>();
         simSubscriptionIds.clear();
-
-        if (subList != null && !subList.isEmpty()) {
-            for (SubscriptionInfo info : subList) {
-                String carrier = info.getCarrierName() != null ? info.getCarrierName().toString() : "SIM " + (info.getSimSlotIndex() + 1);
-                simLabels.add(carrier + " (Slot " + (info.getSimSlotIndex() + 1) + ")");
-                simSubscriptionIds.add(info.getSubscriptionId());
-            }
-        } else {
-            simLabels.add("Default Phone SIM");
-            simSubscriptionIds.add(-1);
-        }
-
+        simLabels.add("SIM 1 (Teletalk / Default)");
+        simSubscriptionIds.add(-1);
+        simLabels.add("SIM 2");
+        simSubscriptionIds.add(-2);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, simLabels);
         spSimSlot.setAdapter(adapter);
-
-        // Auto-select Teletalk if present
-        for (int i = 0; i < simLabels.size(); i++) {
-            if (simLabels.get(i).toLowerCase().contains("teletalk")) {
-                spSimSlot.setSelection(i);
-                break;
-            }
-        }
     }
 
     private void startGatewayService() {
