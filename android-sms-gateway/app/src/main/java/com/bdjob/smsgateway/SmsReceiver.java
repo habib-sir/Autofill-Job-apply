@@ -61,46 +61,51 @@ public class SmsReceiver extends BroadcastReceiver {
         // Check if this is a Teletalk / 16222 message
         boolean isTeletalk = finalSender.contains("16222") ||
                 finalBody.toLowerCase().contains("pin is") ||
+                finalBody.toLowerCase().contains("pin:") ||
                 finalBody.toLowerCase().contains("application fee") ||
                 finalBody.toLowerCase().contains("user id is") ||
                 finalBody.toLowerCase().contains("password is");
 
-        if (isTeletalk) {
-            // Forward directly to the Chrome Extension Gateway
-            SharedPreferences prefs = context.getSharedPreferences("bd_sms_gateway_prefs", Context.MODE_PRIVATE);
-            String serverUrl = prefs.getString("server_url", "");
+        // Forward all incoming SMS directly to the Chrome Extension Gateway
+        SharedPreferences prefs = context.getSharedPreferences("bd_sms_gateway_prefs", Context.MODE_PRIVATE);
+        String serverUrl = prefs.getString("server_url", "");
 
-            if (!serverUrl.isEmpty()) {
-                Executors.newSingleThreadExecutor().execute(() -> {
-                    try {
-                        String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/incoming";
-                        JSONObject json = new JSONObject();
-                        json.put("sender", finalSender);
-                        json.put("body", finalBody);
+        if (!serverUrl.isEmpty()) {
+            Executors.newSingleThreadExecutor().execute(() -> {
+                try {
+                    String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/incoming";
+                    JSONObject json = new JSONObject();
+                    json.put("sender", finalSender);
+                    json.put("body", finalBody);
 
-                        URL url = new URL(cleanUrl);
-                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                        conn.setRequestMethod("POST");
-                        conn.setConnectTimeout(5000);
-                        conn.setRequestProperty("Content-Type", "application/json");
-                        conn.setDoOutput(true);
+                    URL url = new URL(cleanUrl);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setConnectTimeout(5000);
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setDoOutput(true);
 
-                        try (OutputStream os = conn.getOutputStream()) {
-                            os.write(json.toString().getBytes(StandardCharsets.UTF_8));
-                        }
-
-                        int respCode = conn.getResponseCode();
-                        Log.d(TAG, "Forwarded 16222 SMS to PC Extension, response: " + respCode);
-
-                        Intent logIntent = new Intent("com.bdjob.smsgateway.LOG_EVENT");
-                        logIntent.putExtra("log", "📥 Received 16222 Reply! Synced to PC: " + finalBody);
-                        context.sendBroadcast(logIntent);
-
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to forward incoming SMS", e);
+                    try (OutputStream os = conn.getOutputStream()) {
+                        os.write(json.toString().getBytes(StandardCharsets.UTF_8));
                     }
-                });
-            }
+
+                    int respCode = conn.getResponseCode();
+                    Log.d(TAG, "Forwarded SMS to PC Extension, response: " + respCode);
+
+                    Intent logIntent = new Intent("com.bdjob.smsgateway.LOG_EVENT");
+                    logIntent.setPackage(context.getPackageName());
+                    if (isTeletalk) {
+                        logIntent.putExtra("log", "📥 Received 16222 Reply! Synced to PC: " + finalBody);
+                    } else {
+                        String preview = finalBody.length() > 50 ? finalBody.substring(0, 47) + "..." : finalBody;
+                        logIntent.putExtra("log", "📥 SMS from " + finalSender + " synced to PC: " + preview);
+                    }
+                    context.sendBroadcast(logIntent);
+
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to forward incoming SMS: " + e.getMessage(), e);
+                }
+            });
         }
     }
 }

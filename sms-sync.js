@@ -126,10 +126,25 @@ const pasteSamplePinBtn = document.getElementById('paste-sample-pin-btn');
 const pasteSamplePassBtn = document.getElementById('paste-sample-pass-btn');
 const parseFeedbackMsg = document.getElementById('parse-feedback-msg');
 
+// Composer chips & status
+const chip1stSms = document.getElementById('chip-1st-sms');
+const chip2ndSms = document.getElementById('chip-2nd-sms');
+const chipHelpSms = document.getElementById('chip-help-sms');
+const customSmsStatus = document.getElementById('custom-sms-status');
+
 // Activity Feed & Simulators
 const smsFeedContainer = document.getElementById('sms-feed-container');
+const smsCountBadge = document.getElementById('sms-count-badge');
+const filterAllBtn = document.getElementById('filter-all-btn');
+const filter16222Btn = document.getElementById('filter-16222-btn');
+const filterSentBtn = document.getElementById('filter-sent-btn');
+const refreshFeedBtn = document.getElementById('refresh-feed-btn');
+const smsSearchInput = document.getElementById('sms-search-input');
 const simulatePinReplyBtn = document.getElementById('simulate-pin-reply-btn');
 const simulatePassReplyBtn = document.getElementById('simulate-pass-reply-btn');
+
+let currentFilter = 'all';
+let currentSearch = '';
 
 /**
  * Toast feedback notification
@@ -233,6 +248,7 @@ manualPinInput.addEventListener('input', (e) => {
   if (pin) {
     currentDetectedPin = pin;
     sendStep2Btn.disabled = false;
+    if (sendStep2PhoneBtn) sendStep2PhoneBtn.disabled = false;
     updatePreviews();
   }
 });
@@ -529,16 +545,52 @@ function renderDeviceStatus(device) {
  */
 function renderMessages(messages) {
   if (!messages || messages.length === 0) {
+    if (smsCountBadge) smsCountBadge.textContent = '0 messages';
     smsFeedContainer.innerHTML = `
       <div style="text-align: center; color: var(--color-text-muted); font-size: 13px; padding: 20px;">
-        No messages yet. Messages sent via your phone will appear here.
+        No messages yet. When your phone connects, all past and incoming SMS will appear here!
       </div>
     `;
     return;
   }
 
-  // Reverse copy for newest on top or bottom
-  const sorted = [...messages].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  // Filter messages
+  let filtered = [...messages];
+  if (currentFilter === '16222') {
+    filtered = filtered.filter(m => 
+      (m.sender && m.sender.includes('16222')) || 
+      (m.recipient && m.recipient.includes('16222')) || 
+      (m.parsed && m.parsed.isTeletalk)
+    );
+  } else if (currentFilter === 'sent') {
+    filtered = filtered.filter(m => m.direction === 'outgoing');
+  }
+
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    filtered = filtered.filter(m => 
+      (m.body && m.body.toLowerCase().includes(q)) || 
+      (m.sender && m.sender.toLowerCase().includes(q)) ||
+      (m.parsed && m.parsed.pin && m.parsed.pin.includes(q)) ||
+      (m.parsed && m.parsed.applicantName && m.parsed.applicantName.toLowerCase().includes(q))
+    );
+  }
+
+  if (smsCountBadge) {
+    smsCountBadge.textContent = `${filtered.length} of ${messages.length} messages`;
+  }
+
+  if (filtered.length === 0) {
+    smsFeedContainer.innerHTML = `
+      <div style="text-align: center; color: var(--color-text-muted); font-size: 13px; padding: 20px;">
+        No messages match the current filter or search.
+      </div>
+    `;
+    return;
+  }
+
+  // Sort by time: oldest to newest
+  const sorted = filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   smsFeedContainer.innerHTML = '';
   sorted.forEach(msg => {
@@ -546,28 +598,65 @@ function renderMessages(messages) {
     const isOut = msg.direction === 'outgoing';
     bubble.className = `msg-bubble ${isOut ? 'msg-bubble--outgoing' : 'msg-bubble--incoming'}`;
 
-    const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+    const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }) : '';
     const senderTitle = isOut ? `Desktop ➔ Phone ➔ ${msg.recipient}` : `${msg.sender} ➔ Phone ➔ Desktop`;
+
+    let sourceBadge = '';
+    if (msg.isInboxSync) {
+      sourceBadge = `<span style="font-size: 10px; background: #e2e8f0; color: #475569; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px;">Past Phone SMS</span>`;
+    } else if (!isOut) {
+      sourceBadge = `<span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px;">Live Incoming</span>`;
+    }
 
     let parsedExtra = '';
     if (msg.parsed && msg.parsed.isTeletalk) {
       if (msg.parsed.pin) {
-        parsedExtra = `<div class="parsed-badge">🔑 PIN Auto-Extracted: ${msg.parsed.pin} (Fee: Tk. ${msg.parsed.fee || '220'})</div>`;
+        parsedExtra = `
+          <div class="parsed-badge" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+            <span>🔑 PIN: <strong>${msg.parsed.pin}</strong> ${msg.parsed.fee ? `(Fee: Tk. ${msg.parsed.fee})` : ''}</span>
+            <button type="button" class="btn btn-primary btn-sm copy-pin-btn" data-pin="${msg.parsed.pin}" style="font-size: 11px; padding: 2px 8px; font-weight: 700;">
+              📋 Use PIN for Step 2
+            </button>
+          </div>
+        `;
       } else if (msg.parsed.password) {
-        parsedExtra = `<div class="parsed-badge" style="background:#dbeafe; color:#1e40af;">🎉 Fee Paid! Password: ${msg.parsed.password}</div>`;
+        parsedExtra = `<div class="parsed-badge" style="background:#dbeafe; color:#1e40af; margin-top: 6px;">🎉 Fee Paid! Password: <strong>${msg.parsed.password}</strong></div>`;
       }
     }
 
     bubble.innerHTML = `
-      <div class="msg-meta">
-        <strong>${senderTitle}</strong>
-        <span>${timeStr}</span>
+      <div class="msg-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div style="display: flex; align-items: center;">
+          <strong style="font-size: 12px;">${senderTitle}</strong>
+          ${sourceBadge}
+        </div>
+        <span style="font-size: 11px; color: var(--color-text-muted);">${timeStr}</span>
       </div>
-      <div style="word-break: break-word;">${msg.body}</div>
+      <div style="word-break: break-word; font-size: 13px; line-height: 1.4;">${msg.body}</div>
       ${parsedExtra}
     `;
 
     smsFeedContainer.appendChild(bubble);
+  });
+
+  // Attach event listeners to all "Use PIN for Step 2" buttons
+  smsFeedContainer.querySelectorAll('.copy-pin-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const pin = btn.getAttribute('data-pin');
+      if (pin) {
+        manualPinInput.value = pin;
+        currentDetectedPin = pin;
+        updatePreviews();
+        sendStep2Btn.disabled = false;
+        if (sendStep2PhoneBtn) sendStep2PhoneBtn.disabled = false;
+        step2Status.textContent = '✅ PIN copied from SMS! Ready to send confirmation.';
+        step2Status.style.color = 'var(--color-success)';
+        step2Card.classList.add('wizard-step--active');
+        step2Card.scrollIntoView({ behavior: 'smooth' });
+        showSmsToast('PIN ' + pin + ' copied to Step 2 Confirmation SMS!');
+      }
+    });
   });
 
   // Auto-scroll to bottom
@@ -605,6 +694,7 @@ function analyzeMessageState(messages) {
     step2Status.style.color = 'var(--color-success)';
     step2Card.classList.add('wizard-step--active');
     sendStep2Btn.disabled = false;
+    if (sendStep2PhoneBtn) sendStep2PhoneBtn.disabled = false;
   }
 
   // Check if Password reply arrived
@@ -1001,8 +1091,33 @@ saveToApplicationsBtn.addEventListener('click', () => {
 });
 
 /**
- * Quick Custom SMS Send
+ * Quick Custom SMS Send & Chips
  */
+if (chip1stSms) {
+  chip1stSms.addEventListener('click', () => {
+    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
+    const uid = (userIdInput.value || '7A8B9C').trim().toUpperCase();
+    customRecipient.value = '16222';
+    customBody.value = `${org} ${uid}`;
+  });
+}
+
+if (chip2ndSms) {
+  chip2ndSms.addEventListener('click', () => {
+    const org = (orgCodeInput.value || 'BPSC').trim().toUpperCase();
+    const pin = manualPinInput.value.trim() || currentDetectedPin || '12345678';
+    customRecipient.value = '16222';
+    customBody.value = `${org} YES ${pin}`;
+  });
+}
+
+if (chipHelpSms) {
+  chipHelpSms.addEventListener('click', () => {
+    customRecipient.value = '16222';
+    customBody.value = '16222 HELP';
+  });
+}
+
 sendCustomSmsBtn.addEventListener('click', async () => {
   const recipient = customRecipient.value.trim();
   const body = customBody.value.trim();
@@ -1013,6 +1128,11 @@ sendCustomSmsBtn.addEventListener('click', async () => {
   }
 
   sendCustomSmsBtn.disabled = true;
+  if (customSmsStatus) {
+    customSmsStatus.style.color = '#0284c7';
+    customSmsStatus.textContent = `⏳ Sending command to phone (${recipient})...`;
+  }
+
   try {
     const res = await fetch('/api/sms/send', {
       method: 'POST',
@@ -1021,15 +1141,82 @@ sendCustomSmsBtn.addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.ok) {
+      if (customSmsStatus) {
+        customSmsStatus.style.color = '#15803d';
+        customSmsStatus.textContent = `✅ Dispatched to phone! Teletalk SIM is sending now.`;
+        setTimeout(() => { if (customSmsStatus) customSmsStatus.textContent = ''; }, 6000);
+      }
+      showSmsToast(`SMS dispatched to phone -> ${recipient}!`);
       customBody.value = '';
       await fetchBridgeState();
+    } else {
+      if (customSmsStatus) {
+        customSmsStatus.style.color = '#b91c1c';
+        customSmsStatus.textContent = `Error: ${data.error}`;
+      }
+      alert('Error: ' + data.error);
     }
   } catch (err) {
+    if (customSmsStatus) {
+      customSmsStatus.style.color = '#b91c1c';
+      customSmsStatus.textContent = `Network error: ${err.message}`;
+    }
     alert('Failed to send: ' + err.message);
   } finally {
     sendCustomSmsBtn.disabled = false;
   }
 });
+
+/**
+ * SMS Feed Filters & Search
+ */
+function updateFilterButtons() {
+  if (filterAllBtn) filterAllBtn.className = currentFilter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  if (filter16222Btn) filter16222Btn.className = currentFilter === '16222' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  if (filterSentBtn) filterSentBtn.className = currentFilter === 'sent' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+}
+
+if (filterAllBtn) {
+  filterAllBtn.addEventListener('click', () => {
+    currentFilter = 'all';
+    updateFilterButtons();
+    renderMessages(bridgeState.messages || []);
+  });
+}
+
+if (filter16222Btn) {
+  filter16222Btn.addEventListener('click', () => {
+    currentFilter = '16222';
+    updateFilterButtons();
+    renderMessages(bridgeState.messages || []);
+  });
+}
+
+if (filterSentBtn) {
+  filterSentBtn.addEventListener('click', () => {
+    currentFilter = 'sent';
+    updateFilterButtons();
+    renderMessages(bridgeState.messages || []);
+  });
+}
+
+if (refreshFeedBtn) {
+  refreshFeedBtn.addEventListener('click', async () => {
+    refreshFeedBtn.disabled = true;
+    refreshFeedBtn.textContent = '⏳ ...';
+    await fetchBridgeState();
+    refreshFeedBtn.textContent = '🔄 Refresh';
+    refreshFeedBtn.disabled = false;
+    showSmsToast('SMS feed updated from phone gateway!');
+  });
+}
+
+if (smsSearchInput) {
+  smsSearchInput.addEventListener('input', (e) => {
+    currentSearch = e.target.value.trim();
+    renderMessages(bridgeState.messages || []);
+  });
+}
 
 /**
  * Instant Simulators

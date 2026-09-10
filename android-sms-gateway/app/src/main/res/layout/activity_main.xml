@@ -104,20 +104,29 @@
         android:layout_marginBottom="12dp">
 
         <Button
+            android:id="@+id/btn_sync_inbox"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.2"
+            android:text="📥 Sync Phone SMS"
+            android:textSize="12sp" />
+
+        <Button
             android:id="@+id/btn_test_sms"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="📲 Test Send SMS (16222)"
-            android:textSize="12sp" />
+            android:text="📲 Test 16222"
+            android:textSize="12sp"
+            android:layout_marginStart="6dp" />
 
         <Button
             android:id="@+id/btn_clear_log"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Clear Log"
+            android:text="Clear"
             android:textSize="12sp"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="6dp" />
     </LinearLayout>
 
     <!-- Activity Log -->

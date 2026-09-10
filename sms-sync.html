@@ -387,28 +387,48 @@
           </div>
         </section>
 
-        <!-- Quick Custom SMS Composer -->
+        <!-- Quick Custom SMS Composer for 16222 -->
         <section class="card">
           <div class="card-title">
             <div class="card-title-left">
               <span>✉️</span>
-              <span>Quick Custom SMS Composer</span>
+              <span>16222 Direct SMS Composer (Send from Phone)</span>
             </div>
+            <span class="step-badge" style="background:#eff6ff; color:#1d4ed8;">Phone Gateway Active</span>
           </div>
           <div style="display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; gap: 10px;">
-              <div style="width: 140px;">
-                <label class="input-label" for="custom-recipient">Recipient Number:</label>
-                <input type="text" id="custom-recipient" class="input-field" value="16222" />
+            <p style="font-size: 12px; color: var(--color-text-muted); margin: 0;">
+              Type any message below and click Send. Your phone (sitting with app open) will immediately send the SMS from its Teletalk SIM.
+            </p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <div style="width: 130px;">
+                <label class="input-label" for="custom-recipient">Send To:</label>
+                <input type="text" id="custom-recipient" class="input-field" value="16222" style="font-weight: 700; font-family: monospace;" />
               </div>
-              <div style="flex: 1;">
-                <label class="input-label" for="custom-body">Message Body:</label>
-                <input type="text" id="custom-body" class="input-field" placeholder="e.g. BPSC HELP" />
+              <div style="flex: 1; min-width: 220px;">
+                <label class="input-label" for="custom-body">SMS Body:</label>
+                <input type="text" id="custom-body" class="input-field" placeholder="e.g. BPSC 7A8B9C or BPSC YES 12345678" />
               </div>
             </div>
-            <div style="display: flex; justify-content: flex-end;">
-              <button id="send-custom-sms-btn" class="btn btn-primary" type="button">
-                <span>🚀</span> Queue to Phone
+
+            <!-- Quick Template Insert Chips -->
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <span style="font-size: 11px; color: var(--color-text-muted); font-weight: 600;">Quick Formats:</span>
+              <button id="chip-1st-sms" type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 2px 8px;">
+                Insert 1st SMS
+              </button>
+              <button id="chip-2nd-sms" type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 2px 8px;">
+                Insert 2nd Confirmation SMS
+              </button>
+              <button id="chip-help-sms" type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 2px 8px;">
+                16222 HELP
+              </button>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+              <div id="custom-sms-status" style="font-size: 12px; color: var(--color-text-muted); font-weight: 600;"></div>
+              <button id="send-custom-sms-btn" class="btn btn-primary" type="button" style="padding: 8px 18px; font-weight: 700;">
+                <span>📲</span> Send from Phone Now
               </button>
             </div>
           </div>
@@ -419,20 +439,40 @@
       <!-- RIGHT COLUMN: Message Log & Gateway Setup Guide -->
       <div class="sms-layout-right">
 
-        <!-- Live 16222 SMS Conversation Log -->
+        <!-- Live Phone SMS Conversation & Inbox Feed -->
         <section class="card">
-          <div class="card-title">
+          <div class="card-title" style="margin-bottom: 8px;">
             <div class="card-title-left">
               <span>💬</span>
-              <span>Live SMS Activity &amp; 16222 Feed</span>
+              <span>Phone SMS Inbox &amp; 16222 Live Feed</span>
             </div>
-            <span style="font-size: 11px; color: var(--color-text-muted);">Auto-refreshes</span>
+            <span id="sms-count-badge" class="step-badge" style="background:#e0f2fe; color:#0369a1;">0 messages</span>
+          </div>
+
+          <!-- Feed Controls: Filter Buttons & Search -->
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <button id="filter-all-btn" class="btn btn-primary btn-sm" style="font-size: 11px; padding: 4px 10px;">
+                All Phone SMS
+              </button>
+              <button id="filter-16222-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">
+                16222 Teletalk Only
+              </button>
+              <button id="filter-sent-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;">
+                Sent from Phone
+              </button>
+              <button id="refresh-feed-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 8px; margin-left: auto;" title="Refresh messages from server">
+                🔄 Refresh
+              </button>
+            </div>
+
+            <input type="text" id="sms-search-input" class="input-field" placeholder="🔍 Search SMS (by sender, PIN, fee, keyword)..." style="font-size: 12px; padding: 6px 10px;" />
           </div>
 
           <!-- Simulation Quick Testing Buttons -->
-          <div style="background: #f1f5f9; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px;">
+          <div style="background: #f8fafc; border: 1px solid var(--color-border); border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; font-size: 12px;">
             <div style="font-weight: 600; color: var(--color-text); margin-bottom: 6px;">
-              🧪 Instant Simulator (Test Without Real SMS):
+              🧪 Instant Simulator (Test flow without real phone):
             </div>
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
               <button id="simulate-pin-reply-btn" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;">

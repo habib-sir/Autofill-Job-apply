@@ -91,11 +91,14 @@ function parseTeletalkSms(body) {
   }
 
   // Check if this is a 1st SMS reply containing PIN
-  const pinMatch = text.match(/PIN\s*(?:is|:)?\s*([0-9]{6,10})/i);
-  const feeMatch = text.match(/Tk\.?\s*:?\s*([0-9]+(?:\.[0-9]+)?)/i);
+  const pinMatch = text.match(/(?:PIN\s*(?:is|:|=|-)?|your\s*PIN\s*(?:is|:|=|-)?)\s*([0-9]{6,10})/i) ||
+                   text.match(/PIN\s*[:= ]*\s*([0-9]{6,10})/i);
+  const feeMatch = text.match(/Tk\.?\s*:?\s*([0-9]+(?:\.[0-9]+)?)/i) ||
+                   text.match(/([0-9]+)\s*Tk/i);
   const nameMatch = text.match(/Applicant(?:'s)?\s*Name\s*:\s*([^,\n\.]+)/i);
   const startNameMatch = text.match(/^([A-Z\s\.\-]{3,35}),\s*(?:Tk|Application)/i);
-  const payTypeMatch = text.match(/type\s*(?:is|:)?\s*([A-Za-z0-9]+\s+YES\s+[0-9]+)/i);
+  const payTypeMatch = text.match(/type\s*(?:is|:)?\s*([A-Za-z0-9]+\s+YES\s+[0-9]+)/i) ||
+                       text.match(/([A-Za-z0-9]+\s+YES\s+[0-9]{6,10})/i);
 
   // Check if this is a 2nd SMS reply containing User ID and Password
   const userMatch = text.match(/User\s*ID\s*(?:is|:)?\s*([A-Za-z0-9]+)/i);
@@ -377,6 +380,50 @@ app.post('/api/sms/report-sent', (req, res) => {
 
   saveState();
   res.json({ ok: true, job });
+});
+
+// API: Phone syncs full inbox (past and existing SMS messages)
+app.post('/api/sms/sync-inbox', (req, res) => {
+  const { messages: incomingList } = req.body;
+  if (!Array.isArray(incomingList)) {
+    return res.status(400).json({ ok: false, error: 'Expected messages array' });
+  }
+
+  let addedCount = 0;
+  for (const item of incomingList) {
+    if (!item.body) continue;
+    const bodyTrimmed = item.body.trim();
+    const sender = item.sender || 'Unknown';
+    const timestamp = item.timestamp || new Date().toISOString();
+
+    // Deduplicate: check if message already exists with identical sender & body
+    const exists = state.messages.some(m => 
+      m.body === bodyTrimmed && 
+      (m.sender === sender || m.sender.replace(/[^0-9]/g, '') === sender.replace(/[^0-9]/g, ''))
+    );
+
+    if (!exists) {
+      const parsed = parseTeletalkSms(bodyTrimmed);
+      state.messages.push({
+        id: 'inbox_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        direction: 'incoming',
+        sender,
+        recipient: 'My Teletalk Phone',
+        body: bodyTrimmed,
+        parsed,
+        timestamp,
+        isInboxSync: true
+      });
+      addedCount++;
+    }
+  }
+
+  if (state.pairedDevice) {
+    state.pairedDevice.lastSeen = Date.now();
+  }
+
+  saveState();
+  res.json({ ok: true, syncedCount: addedCount, totalMessages: state.messages.length });
 });
 
 // API: Phone syncs incoming SMS (from 16222 or any sender)

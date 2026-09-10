@@ -66,6 +66,10 @@ public class SmsGatewayService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
+            if ("ACTION_SYNC_INBOX".equals(intent.getAction())) {
+                syncDeviceInbox();
+                return START_STICKY;
+            }
             serverUrl = intent.getStringExtra("server_url");
             pairingCode = intent.getStringExtra("pairing_code");
             simSubscriptionId = intent.getIntExtra("sim_sub_id", -1);
@@ -90,7 +94,7 @@ public class SmsGatewayService extends Service {
         isRunning = true;
         isPolling = true;
 
-        // Register device with server
+        // Register device with server and sync existing inbox SMS
         executor.execute(this::registerDevice);
 
         // Start polling
@@ -161,10 +165,70 @@ public class SmsGatewayService extends Service {
 
             String response = makeHttpRequest(cleanUrl, "POST", body.toString());
             sendBroadcastLog("Paired with extension gateway: " + response);
+
+            // Automatically sync past phone SMS to PC Extension
+            syncDeviceInbox();
         } catch (Exception e) {
             Log.e(TAG, "Registration error", e);
             sendBroadcastLog("Registration failed: " + e.getMessage());
         }
+    }
+
+    public void syncDeviceInbox() {
+        executor.execute(() -> {
+            try {
+                if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    sendBroadcastLog("⚠️ READ_SMS permission needed to sync past SMS.");
+                    return;
+                }
+
+                android.net.Uri inboxUri = android.net.Uri.parse("content://sms/inbox");
+                android.content.ContentResolver cr = getContentResolver();
+                String[] projection = new String[]{"_id", "address", "body", "date"};
+
+                android.database.Cursor cursor = cr.query(inboxUri, projection, null, null, "date DESC LIMIT 60");
+                if (cursor == null) {
+                    sendBroadcastLog("⚠️ Could not access phone SMS inbox.");
+                    return;
+                }
+
+                JSONArray msgArray = new JSONArray();
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+                sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+
+                while (cursor.moveToNext()) {
+                    int addrIdx = cursor.getColumnIndex("address");
+                    int bodyIdx = cursor.getColumnIndex("body");
+                    int dateIdx = cursor.getColumnIndex("date");
+
+                    String address = addrIdx != -1 ? cursor.getString(addrIdx) : "Unknown";
+                    String body = bodyIdx != -1 ? cursor.getString(bodyIdx) : "";
+                    long date = dateIdx != -1 ? cursor.getLong(dateIdx) : System.currentTimeMillis();
+
+                    if (body != null && !body.trim().isEmpty()) {
+                        JSONObject obj = new JSONObject();
+                        obj.put("sender", address != null ? address : "Unknown");
+                        obj.put("body", body);
+                        obj.put("timestamp", sdf.format(new java.util.Date(date)));
+                        msgArray.put(obj);
+                    }
+                }
+                cursor.close();
+
+                if (msgArray.length() > 0) {
+                    String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/sync-inbox";
+                    JSONObject req = new JSONObject();
+                    req.put("messages", msgArray);
+                    String resp = makeHttpRequest(cleanUrl, "POST", req.toString());
+                    sendBroadcastLog("📱 Synced " + msgArray.length() + " phone SMS to PC extension!");
+                } else {
+                    sendBroadcastLog("📱 Phone SMS inbox is currently empty.");
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error in syncDeviceInbox: " + e.getMessage(), e);
+                sendBroadcastLog("SMS sync note: " + e.getMessage());
+            }
+        });
     }
 
     private void fetchAndProcessPendingSms() {

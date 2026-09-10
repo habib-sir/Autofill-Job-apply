@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvStatus;
     private TextView tvLog;
     private ScrollView svLog;
+    private Button btnSyncInbox;
     private Button btnTestSms;
     private Button btnClearLog;
 
@@ -74,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tv_status);
         tvLog = findViewById(R.id.tv_log);
         svLog = findViewById(R.id.sv_log);
+        btnSyncInbox = findViewById(R.id.btn_sync_inbox);
         btnTestSms = findViewById(R.id.btn_test_sms);
         btnClearLog = findViewById(R.id.btn_clear_log);
 
@@ -92,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        btnSyncInbox.setOnClickListener(v -> syncPhoneInbox());
         btnTestSms.setOnClickListener(v -> sendTestSms());
         btnClearLog.setOnClickListener(v -> tvLog.setText(""));
     }
@@ -278,6 +281,17 @@ public class MainActivity extends AppCompatActivity {
             tvStatus.setText("🔴 Disconnected (Toggle ON to connect)");
             tvStatus.setTextColor(0xFFB91C1C);
         }
+    }
+
+    private void syncPhoneInbox() {
+        Intent serviceIntent = new Intent(this, SmsGatewayService.class);
+        serviceIntent.setAction("ACTION_SYNC_INBOX");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+        appendLog("Initiating phone SMS inbox sync to PC extension...");
     }
 
     private void sendTestSms() {
