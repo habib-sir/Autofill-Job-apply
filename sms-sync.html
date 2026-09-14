@@ -126,7 +126,43 @@
             <div id="custom-sms-status" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;"></div>
           </div>
 
-          <!-- Server Connection & Settings Bar (Compact Footer) -->
+          <!-- Phone App Pairing Panel -->
+          <div class="gateway-config-bar" style="background:#eff6ff; border: 1px solid #bfdbfe;">
+            <div class="card-title-left" style="margin-bottom: 8px;">
+              <span>📱</span>
+              <span style="font-weight: 700; font-size: 13px;">Connect Your Phone App (BD Job SMS Gateway)</span>
+            </div>
+            <p style="margin: 0 0 10px 0; font-size: 11px; color: var(--color-text-muted);">
+              Open the <strong>BD Job SMS Gateway</strong> app on your phone and enter these two values, then toggle it ON.
+            </p>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div>
+                <label class="input-label" style="font-size: 11px;">Gateway Server URL (type this into the app):</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="pairing-server-url" class="input-field" readonly
+                         style="flex:1; font-family: monospace; font-size: 12px; font-weight: 700; background:#fff;" />
+                  <button id="copy-pairing-url-btn" type="button" class="btn btn-secondary btn-sm" style="font-size:11px; padding: 4px 10px;">Copy</button>
+                </div>
+              </div>
+
+              <div>
+                <label class="input-label" style="font-size: 11px;">Pairing Code (type this into the app):</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="text" id="pairing-code" class="input-field" readonly
+                         style="flex:1; font-family: monospace; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-align:center; background:#fff; color:#1d4ed8;" />
+                  <button id="copy-pairing-code-btn" type="button" class="btn btn-secondary btn-sm" style="font-size:11px; padding: 4px 10px;">Copy</button>
+                  <button id="regenerate-pairing-code-btn" type="button" class="btn btn-secondary btn-sm" style="font-size:11px; padding: 4px 10px;" title="Generate a new code (old code stops working)">🔄 New</button>
+                </div>
+              </div>
+
+              <div id="pairing-phone-status" style="font-size: 11px; color: var(--color-text-muted);">
+                Phone status: checking...
+              </div>
+            </div>
+          </div>
+
+          <!-- Advanced Server Connection & Settings Bar (Compact Footer) -->
           <div class="gateway-config-bar">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--color-text-muted);">
               <span>Gateway: <strong id="current-gateway-label" style="color: var(--color-primary); font-family: monospace;">http://localhost:3000</strong></span>

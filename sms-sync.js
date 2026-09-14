@@ -72,6 +72,14 @@ const customServerUrlInput = document.getElementById('custom-server-url-input');
 const saveServerUrlBtn = document.getElementById('save-server-url-btn');
 const resetServerUrlBtn = document.getElementById('reset-server-url-btn');
 
+// DOM Elements: Phone App Pairing Panel
+const pairingServerUrlInput = document.getElementById('pairing-server-url');
+const pairingCodeInput = document.getElementById('pairing-code');
+const copyPairingUrlBtn = document.getElementById('copy-pairing-url-btn');
+const copyPairingCodeBtn = document.getElementById('copy-pairing-code-btn');
+const regeneratePairingCodeBtn = document.getElementById('regenerate-pairing-code-btn');
+const pairingPhoneStatus = document.getElementById('pairing-phone-status');
+
 // DOM Elements: Section 2 - Phone SMS Inbox & 16222 Live Feed
 const smsFeedContainer = document.getElementById('sms-feed-container');
 const smsCountBadge = document.getElementById('sms-count-badge');
@@ -527,6 +535,8 @@ async function checkServerStatus() {
       await saveLocalMessages(merged);
       renderFeed();
     }
+
+    updatePairingPanel(result.data);
   } else {
     isServerOnline = false;
     if (serverStatusPill) {
@@ -535,6 +545,44 @@ async function checkServerStatus() {
     if (serverStatusText) {
       serverStatusText.textContent = `🟡 Local Outbox (Server Offline)`;
     }
+    if (pairingPhoneStatus) {
+      pairingPhoneStatus.textContent = 'Phone status: cannot reach the gateway server right now.';
+    }
+  }
+}
+
+/**
+ * Fill in the pairing code and paired-phone status.
+ * The Gateway Server URL field is populated separately (see refreshPairingServerUrl)
+ * because it needs the PC's real LAN IP, not "localhost".
+ */
+function updatePairingPanel(stateData) {
+  if (pairingCodeInput && stateData.pairingToken) {
+    pairingCodeInput.value = stateData.pairingToken;
+  }
+  if (pairingPhoneStatus) {
+    const dev = stateData.pairedDevice;
+    if (dev && dev.isOnline) {
+      pairingPhoneStatus.textContent = `Phone status: 🟢 ${dev.name} connected (battery ${dev.battery}%)`;
+    } else if (dev) {
+      pairingPhoneStatus.textContent = `Phone status: 🟡 ${dev.name} paired but not seen recently. Open the app on your phone.`;
+    } else {
+      pairingPhoneStatus.textContent = 'Phone status: 🔴 not paired yet. Enter the code below in the app.';
+    }
+  }
+}
+
+/**
+ * Look up the PC's real Wi-Fi IP address so the phone app knows
+ * what address to connect to (localhost would point at the phone itself).
+ */
+async function refreshPairingServerUrl() {
+  if (!pairingServerUrlInput) return;
+  const result = await apiFetch('/api/sms/network-ips');
+  if (result.ok && result.data && result.data.suggestedIp) {
+    pairingServerUrlInput.value = `http://${result.data.suggestedIp}:${result.data.port}`;
+  } else {
+    pairingServerUrlInput.value = 'Could not detect Wi-Fi IP — make sure server.js is running';
   }
 }
 
@@ -585,7 +633,7 @@ async function handleSendCustomSms() {
     newMsg.status = 'DISPATCHED_TO_PHONE';
     await saveLocalMessages(feedMessages);
     renderFeed();
-    setCustomSmsStatus(`✅ Dispatched to phone gateway! Your Teletalk SIM is sending now.`, 'success');
+    setCustomSmsStatus(`📤 Queued to your phone. Open the SMS Gateway page on your phone and tap "Open in SMS App" to actually send it.`, 'success');
     showToast(`📲 SMS sent to Phone Gateway (${recipient})`);
   } else {
     // Server is unreachable or local development
@@ -861,9 +909,48 @@ async function init() {
     });
   }
 
+  // 11. Phone App Pairing Panel
+  if (copyPairingUrlBtn && pairingServerUrlInput) {
+    copyPairingUrlBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pairingServerUrlInput.value);
+        showToast('📋 Server URL copied!');
+      } catch (e) {
+        pairingServerUrlInput.select();
+        showToast('Select and copy manually (clipboard blocked)');
+      }
+    });
+  }
+
+  if (copyPairingCodeBtn && pairingCodeInput) {
+    copyPairingCodeBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pairingCodeInput.value);
+        showToast('📋 Pairing code copied!');
+      } catch (e) {
+        pairingCodeInput.select();
+        showToast('Select and copy manually (clipboard blocked)');
+      }
+    });
+  }
+
+  if (regeneratePairingCodeBtn) {
+    regeneratePairingCodeBtn.addEventListener('click', async () => {
+      if (!confirm('This invalidates the old code. Your phone app will need the new code. Continue?')) return;
+      const result = await apiFetch('/api/sms/reset-token', { method: 'POST' });
+      if (result.ok && result.data && result.data.pairingToken) {
+        pairingCodeInput.value = result.data.pairingToken;
+        showToast('🔄 New pairing code generated');
+      } else {
+        showToast('Failed to regenerate code');
+      }
+    });
+  }
+
   // Initial update
   updateCharCount();
   updateSmsLinkAndQr();
+  await refreshPairingServerUrl();
 
   // Check server status
   await checkServerStatus();

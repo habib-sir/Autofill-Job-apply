@@ -359,3 +359,20 @@ setInterval(() => {
     body: JSON.stringify({ batteryLevel: deviceState.batteryLevel })
   }).catch(() => {});
 }, 10000);
+
+// Mobile browsers throttle/pause setInterval timers while the tab is in the
+// background or the screen is locked. Without this, jobs sent while the
+// phone was locked would just sit unseen until the next manual refresh.
+// Force an immediate re-check the moment the page becomes visible again.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    checkPendingJobs();
+    registerDevice();
+  }
+});
+window.addEventListener('focus', () => {
+  checkPendingJobs();
+});
+window.addEventListener('pageshow', () => {
+  checkPendingJobs();
+});

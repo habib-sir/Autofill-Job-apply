@@ -270,9 +270,12 @@ app.post('/api/sms/reset-token', async (req, res) => {
 app.post('/api/sms/pair', (req, res) => {
   const { token, deviceName, phoneModel, simCarrier, batteryLevel } = req.body;
 
-  if (token !== state.pairingToken) {
-    // If token matches or user requests pair
+  if (!token || token !== state.pairingToken) {
     console.warn(`Pair attempt with token ${token} vs active ${state.pairingToken}`);
+    return res.status(403).json({
+      ok: false,
+      error: 'Pairing code did not match. Check the code shown in the extension and try again.'
+    });
   }
 
   state.pairedDevice = {
@@ -501,4 +504,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`BD Job Autofill Server running on http://0.0.0.0:${PORT}`);
 });
-

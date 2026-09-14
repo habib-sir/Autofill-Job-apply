@@ -7,8 +7,11 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.util.Log;
@@ -23,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -85,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
 
         checkAndRequestPermissions();
         loadSimCards();
+        checkBatteryOptimization();
 
         swService.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
@@ -121,6 +126,37 @@ public class MainActivity extends AppCompatActivity {
         try {
             unregisterReceiver(logReceiver);
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Many phone brands (Xiaomi/MIUI, Oppo, Vivo, Realme, Huawei) aggressively
+     * kill background services to save battery, even foreground services with
+     * a visible notification. If the gateway silently stops working after a
+     * few hours, this is almost always why. Asking the user to exempt the app
+     * from battery optimization keeps the SMS polling loop alive reliably.
+     */
+    private void checkBatteryOptimization() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+
+        if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Keep the Gateway Running")
+                    .setMessage("Your phone may stop this app in the background to save battery, " +
+                            "which would break the SMS connection to your PC. " +
+                            "Please allow it to run without restriction.")
+                    .setPositiveButton("Allow", (dialog, which) -> {
+                        try {
+                            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                            intent.setData(Uri.parse("package:" + getPackageName()));
+                            startActivity(intent);
+                        } catch (Exception e) {
+                            appendLog("Could not open battery settings: " + e.getMessage());
+                        }
+                    })
+                    .setNegativeButton("Later", null)
+                    .show();
+        }
     }
 
     private void checkAndRequestPermissions() {
