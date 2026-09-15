@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -19,6 +20,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.Switch;
@@ -46,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private Spinner spSimSlot;
     private Switch swService;
     private TextView tvStatus;
+    private LinearLayout statusCard;
     private TextView tvLog;
     private ScrollView svLog;
     private Button btnSyncInbox;
@@ -70,13 +73,31 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Some OEM skins (notably MIUI) apply "Force Dark" at the OS level
+        // even when our own theme is Light, which washes out explicitly
+        // dark input text into unreadable gray. The theme attribute in
+        // themes.xml handles this on stock Android; this is the same
+        // opt-out applied directly to the window, for phones that only
+        // respect the runtime API.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().getDecorView().setForceDarkAllowed(false);
+        }
+
         prefs = getSharedPreferences("bd_sms_gateway_prefs", MODE_PRIVATE);
 
         etServerUrl = findViewById(R.id.et_server_url);
         etPairingCode = findViewById(R.id.et_pairing_code);
+        // Belt-and-suspenders against OEM force-dark quirks: set these
+        // explicitly in code too, not just in the XML layout.
+        etServerUrl.setTextColor(0xFF0F172A);
+        etServerUrl.setHintTextColor(0xFF64748B);
+        etPairingCode.setTextColor(0xFF0369A1);
+        etPairingCode.setHintTextColor(0xFF64748B);
         spSimSlot = findViewById(R.id.sp_sim_slot);
         swService = findViewById(R.id.sw_service);
+        applyPremiumSwitchTint(swService);
         tvStatus = findViewById(R.id.tv_status);
+        statusCard = findViewById(R.id.status_card);
         tvLog = findViewById(R.id.tv_log);
         svLog = findViewById(R.id.sv_log);
         btnSyncInbox = findViewById(R.id.btn_sync_inbox);
@@ -126,6 +147,33 @@ public class MainActivity extends AppCompatActivity {
         try {
             unregisterReceiver(logReceiver);
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * The default framework Switch renders as a flat gray toggle, which looks
+     * out of place next to the rest of the app's gradient/glow visual style.
+     * Tint it to match the brand palette: cyan-glow track when ON, quiet
+     * neutral when OFF.
+     */
+    private void applyPremiumSwitchTint(Switch sw) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_checked},
+                new int[]{}
+        };
+
+        ColorStateList thumbTint = new ColorStateList(states, new int[]{
+                0xFF0284C7, // ON  — primary
+                0xFFFFFFFF  // OFF — white
+        });
+        ColorStateList trackTint = new ColorStateList(states, new int[]{
+                0xFF7DD3FC, // ON  — soft cyan glow
+                0xFFCBD5E1  // OFF — neutral gray
+        });
+
+        sw.setThumbTintList(thumbTint);
+        sw.setTrackTintList(trackTint);
     }
 
     /**
@@ -233,7 +281,8 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, simLabels);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.spinner_item, simLabels);
+            adapter.setDropDownViewResource(R.layout.spinner_item);
             spSimSlot.setAdapter(adapter);
 
             // Auto-select Teletalk if present
@@ -256,7 +305,8 @@ public class MainActivity extends AppCompatActivity {
         simSubscriptionIds.add(-1);
         simLabels.add("SIM 2");
         simSubscriptionIds.add(-2);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, simLabels);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.spinner_item, simLabels);
+        adapter.setDropDownViewResource(R.layout.spinner_item);
         spSimSlot.setAdapter(adapter);
     }
 
@@ -296,6 +346,7 @@ public class MainActivity extends AppCompatActivity {
 
         tvStatus.setText("🟢 Active (Listening for SMS commands from PC)");
         tvStatus.setTextColor(0xFF15803D);
+        statusCard.setBackgroundResource(R.drawable.bg_status_connected);
         appendLog("SMS Gateway started. Phone is now connected to Chrome Extension.");
     }
 
@@ -304,6 +355,7 @@ public class MainActivity extends AppCompatActivity {
         stopService(serviceIntent);
         tvStatus.setText("🔴 Stopped");
         tvStatus.setTextColor(0xFFB91C1C);
+        statusCard.setBackgroundResource(R.drawable.bg_status_disconnected);
         appendLog("SMS Gateway stopped.");
     }
 
@@ -313,9 +365,11 @@ public class MainActivity extends AppCompatActivity {
         if (isRunning) {
             tvStatus.setText("🟢 Active (Listening for SMS commands from PC)");
             tvStatus.setTextColor(0xFF15803D);
+            statusCard.setBackgroundResource(R.drawable.bg_status_connected);
         } else {
             tvStatus.setText("🔴 Disconnected (Toggle ON to connect)");
             tvStatus.setTextColor(0xFFB91C1C);
+            statusCard.setBackgroundResource(R.drawable.bg_status_disconnected);
         }
     }
 

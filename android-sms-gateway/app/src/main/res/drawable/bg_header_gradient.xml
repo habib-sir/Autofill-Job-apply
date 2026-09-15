@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base deep gradient -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="115"
+                android:startColor="@color/bg_deep"
+                android:centerColor="@color/bg_deep_2"
+                android:endColor="@color/primary_dark" />
+        </shape>
+    </item>
+    <!-- Diagonal glass sheen across the top-left, for a glossy highlight -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="115"
+                android:startColor="#26FFFFFF"
+                android:centerColor="#08FFFFFF"
+                android:endColor="@android:color/transparent"
+                android:centerX="0.35" />
+        </shape>
+    </item>
+    <!-- Soft glow pooling behind where the signal mark sits -->
+    <item android:gravity="left|top" android:left="-30dp" android:top="-40dp">
+        <shape android:shape="oval">
+            <size android:width="160dp" android:height="160dp" />
+            <gradient
+                android:type="radial"
+                android:gradientRadius="80dp"
+                android:startColor="#3322D3EE"
+                android:endColor="@android:color/transparent" />
+        </shape>
+    </item>
+</layer-list>

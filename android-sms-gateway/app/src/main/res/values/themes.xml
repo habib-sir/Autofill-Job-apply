@@ -1,12 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <style name="Theme.BdJobSmsGateway" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        IMPORTANT: parent is "Light", not "DayNight". DayNight silently
+        switches to a dark color scheme when the phone's system dark mode
+        is on, which flips default EditText/Spinner text to near-white —
+        but our layout's background stays hard-coded light, causing
+        washed-out, barely-visible input text. Pinning to Light keeps this
+        screen's appearance identical and always legible, regardless of the
+        phone's system theme setting.
+
+        ANDROID 10+ "FORCE DARK": pinning the theme to Light is not enough
+        on its own. Many phones (Xiaomi/MIUI especially) have a system-wide
+        "Dark mode" toggle that force-inverts ANY app's rendering at the
+        compositor level, even apps using a Light theme, unless the app
+        explicitly opts out with forceDarkAllowed="false" below. Without
+        this, explicit colors like text_dark (#0F172A) can still render as
+        washed-out gray because the OS is repainting them on top of our
+        theme's own color resolution.
+    -->
+    <style name="Theme.BdJobSmsGateway" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSecondary">@color/accent</item>
-        <item name="colorSecondaryVariant">#15803D</item>
+        <item name="colorSecondaryVariant">@color/accent_dark</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_dark</item>
+        <item name="colorOnBackground">@color/text_dark</item>
+        <item name="android:textColorPrimary">@color/text_dark</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="android:statusBarColor">@color/bg_deep</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 </resources>

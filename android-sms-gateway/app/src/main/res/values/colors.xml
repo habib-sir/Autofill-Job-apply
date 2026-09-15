@@ -3,6 +3,18 @@
     <color name="primary">#0284C7</color>
     <color name="primary_dark">#0369A1</color>
     <color name="accent">#16A34A</color>
+    <color name="accent_dark">#15803D</color>
+    <color name="border">#E2E8F0</color>
+    <color name="bg_deep">#0A0F1D</color>
+    <color name="bg_deep_2">#111827</color>
     <color name="bg_light">#F8FAFC</color>
+    <color name="bg_page">#F1F5F9</color>
+    <color name="surface">#FFFFFF</color>
     <color name="text_dark">#0F172A</color>
+    <color name="text_muted">#64748B</color>
+    <color name="text_on_dark">#FFFFFF</color>
+    <color name="text_muted_on_dark">#94A3B8</color>
+    <color name="glow_cyan">#22D3EE</color>
+    <color name="amber">#F59E0B</color>
+    <color name="console_text">#4ADE80</color>
 </resources>
