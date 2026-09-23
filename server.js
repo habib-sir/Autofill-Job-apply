@@ -206,14 +206,14 @@ app.post('/api/sms/check-balance', async (req, res) => {
   const isOnline = state.pairedDevice && (now - (state.pairedDevice.lastSeen || 0) < 60000);
 
   if (isOnline) {
-    // Wait up to 3.5 seconds to see if the paired phone fulfills the USSD response
+    // Check quickly (up to 400ms) if phone already has immediate USSD response
     const start = Date.now();
-    while (Date.now() - start < 3500) {
+    while (Date.now() - start < 400) {
       const found = state.pendingCommands.find(c => c.id === requestId);
       if (found && (found.status === 'COMPLETED' || found.status === 'FAILED')) {
         break;
       }
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 100));
     }
   }
 
