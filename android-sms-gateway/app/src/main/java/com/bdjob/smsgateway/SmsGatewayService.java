@@ -313,7 +313,7 @@ public class SmsGatewayService extends Service {
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
                 NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setSmallIcon(android.R.drawable.sym_action_call)
                         .setContentTitle("📞 টেলিটক ব্যালেন্স চেক (" + ussdCode + ")")
                         .setContentText("পিসি থেকে ব্যালেন্স রিকোয়েস্ট এসেছে। ডায়াল করতে এখানে ট্যাপ করুন।")
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
