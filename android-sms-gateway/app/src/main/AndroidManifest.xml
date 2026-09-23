@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Allow Shizuku libraries to safely merge regardless of cached minSdk -->
+    <uses-sdk
+        tools:overrideLibrary="rikka.shizuku.api, rikka.shizuku.provider, rikka.shizuku.shared" />
 
     <!-- Permissions required for full phone SMS access -->
     <uses-permission android:name="android.permission.SEND_SMS" />
