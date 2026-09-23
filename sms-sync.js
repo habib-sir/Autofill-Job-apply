@@ -373,6 +373,7 @@ async function triggerCheckBalance() {
   }
 
   let finalBalance = null;
+  let hasRealBalance = false;
 
   try {
     const res = await apiFetch('/api/sms/check-balance', {
