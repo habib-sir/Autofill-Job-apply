@@ -33,6 +33,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import rikka.shizuku.Shizuku;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -42,6 +46,7 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
 
     private static final int PERMISSION_REQUEST_CODE = 1001;
+    private static final int SHIZUKU_PERMISSION_REQUEST_CODE = 1002;
 
     private EditText etServerUrl;
     private EditText etPairingCode;
@@ -58,6 +63,17 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvAccStatus;
     private Button btnEnableAcc;
     private Button btnShizukuProtect;
+
+    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {
+        if (requestCode == SHIZUKU_PERMISSION_REQUEST_CODE) {
+            if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                appendLog("✅ Shizuku Permission granted! Applying accessibility auto-grant...");
+                applyShizukuAccessibilityFix();
+            } else {
+                appendLog("❌ Shizuku permission was denied by user.");
+            }
+        }
+    };
 
     private SharedPreferences prefs;
     private List<Integer> simSubscriptionIds = new ArrayList<>();
@@ -155,6 +171,11 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Log.e("MainActivity", "Failed to register logReceiver: " + e.getMessage());
         }
+
+        try {
+            Shizuku.addRequestPermissionResultListener(shizukuPermissionListener);
+        } catch (Throwable ignored) {}
+
         updateStatus();
         updateAccessibilityUI();
     }
@@ -165,6 +186,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             unregisterReceiver(logReceiver);
         } catch (Exception ignored) {}
+        try {
+            Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener);
+        } catch (Throwable ignored) {}
     }
 
     /**
@@ -482,20 +506,91 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showShizukuGuideDialog() {
+        // Check if Shizuku is installed and running on the phone
+        try {
+            if (!Shizuku.pingBinder()) {
+                appendLog("⚠️ Shizuku service is not running. Please open Shizuku app and start it.");
+                showManualShizukuGuide("Shizuku সার্ভিস ফোনে চালু নেই!\n\nদয়া করে প্রথমে Shizuku অ্যাপটি ওপেন করে সার্ভিস চালু (Start) করুন, অথবা নিচের ম্যানুয়াল কমান্ড কপি করে পিসির ADB দিয়ে রান করুন।");
+                return;
+            }
+
+            // Check if our app has permission to use Shizuku
+            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                appendLog("🛡️ Shizuku permission already granted. Applying accessibility settings...");
+                applyShizukuAccessibilityFix();
+            } else if (Shizuku.shouldShowRequestPermissionRationale()) {
+                new AlertDialog.Builder(this)
+                        .setTitle("🛡️ Shizuku পারমিশন প্রয়োজন")
+                        .setMessage("ইনফিনিক্স ফোন যাতে ব্যাকগ্রাউন্ডে সার্ভিস বন্ধ না করে, সেজন্য Shizuku পারমিশন এলাউ করুন।")
+                        .setPositiveButton("এলাউ করুন", (d, w) -> {
+                            Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+                        })
+                        .setNegativeButton("বাতিল", null)
+                        .show();
+            } else {
+                appendLog("Prompting for Shizuku permission popup...");
+                Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+            }
+        } catch (Throwable t) {
+            appendLog("Shizuku binder check exception: " + t.getMessage());
+            showManualShizukuGuide("Shizuku সার্ভিস সনাক্ত করা যায়নি। নিচের কমান্ডটি কপি করে রান করতে পারেন:");
+        }
+    }
+
+    private void applyShizukuAccessibilityFix() {
+        new Thread(() -> {
+            try {
+                String pkg = getPackageName();
+                String serviceClass = pkg + "/" + UssdAccessibilityService.class.getName();
+                String[] commands = new String[]{
+                        "pm grant " + pkg + " android.permission.WRITE_SECURE_SETTINGS",
+                        "settings put secure enabled_accessibility_services " + serviceClass,
+                        "settings put secure accessibility_enabled 1"
+                };
+
+                for (String cmd : commands) {
+                    executeShizukuCommand(cmd);
+                }
+
+                runOnUiThread(() -> {
+                    appendLog("🎉 Shizuku সফলভাবে রান হয়েছে! Accessibility পারমিশন লক করা হয়েছে।");
+                    Toast.makeText(MainActivity.this, "✅ Shizuku সফল! সার্ভিস চিরস্থায়ীভাবে অন হয়েছে।", Toast.LENGTH_LONG).show();
+                    updateAccessibilityUI();
+                });
+            } catch (Exception e) {
+                Log.e("MainActivity", "Failed to apply shizuku commands", e);
+                runOnUiThread(() -> {
+                    appendLog("❌ Shizuku execution error: " + e.getMessage());
+                    Toast.makeText(MainActivity.this, "Shizuku রান করতে সমস্যা: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    private void executeShizukuCommand(String command) throws Exception {
+        Process process = Shizuku.newProcess(new String[]{"sh", "-c", command}, null, null);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            Log.d("ShizukuCmd", line);
+        }
+        process.waitFor();
+    }
+
+    private void showManualShizukuGuide(String intro) {
         String cmd = "pm grant " + getPackageName() + " android.permission.WRITE_SECURE_SETTINGS\n" +
                 "settings put secure enabled_accessibility_services " + getPackageName() + "/com.bdjob.smsgateway.UssdAccessibilityService\n" +
                 "settings put secure accessibility_enabled 1";
 
         new AlertDialog.Builder(this)
                 .setTitle("🛡️ Shizuku / ADB স্থায়ী পারমিশন গাইড")
-                .setMessage("ফোনের রিস্টার্ট বা OEM ক্লিনার যাতে Accessibility পারমিশন মুছে না ফেলে, সেজন্য Shizuku বা ADB টার্মিনালে নিচের কমান্ডটি রান করতে পারেন:\n\n" +
-                        cmd + "\n\nক্লিপবোর্ডে কপি করবেন?")
+                .setMessage(intro + "\n\n" + cmd + "\n\nক্লিপবোর্ডে কপি করবেন?")
                 .setPositiveButton("কপি করুন", (dialog, which) -> {
                     android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     if (clipboard != null) {
                         android.content.ClipData clip = android.content.ClipData.newPlainText("Shizuku Command", cmd);
                         clipboard.setPrimaryClip(clip);
-                        Toast.makeText(MainActivity.this, "📋 কমান্ড কপি হয়েছে! Shizuku বা ADB টার্মিনালে পেস্ট করুন।", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, "📋 কমান্ড কপি হয়েছে! Shizuku বা টার্মিনালে পেস্ট করুন।", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("বন্ধ করুন", null)

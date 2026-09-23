@@ -193,13 +193,16 @@ public class SmsGatewayService extends Service {
             body.put("batteryLevel", 95);
 
             String response = makeHttpRequest(cleanUrl, "POST", body.toString());
-            sendBroadcastLog("Paired with extension gateway: " + response);
-
-            // Automatically sync past phone SMS to PC Extension
-            syncDeviceInbox();
+            if (response != null) {
+                sendBroadcastLog("✅ Paired with extension gateway: " + response);
+                // Automatically sync past phone SMS to PC Extension
+                syncDeviceInbox();
+            } else {
+                sendBroadcastLog("⚠️ Pairing failed: Check Server URL & Pairing Code in app");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Registration error", e);
-            sendBroadcastLog("Registration failed: " + e.getMessage());
+            sendBroadcastLog("❌ Connection Error: " + e.getMessage() + " (Check PC IP & Wi-Fi)");
         }
     }
 

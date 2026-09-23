@@ -175,6 +175,7 @@ app.get('/api/sms/state', (req, res) => {
     pairedDevice: state.pairedDevice ? { ...state.pairedDevice, isOnline } : null,
     pairingToken: state.pairingToken,
     pendingJobs: state.pendingJobs,
+    pendingCommands: state.pendingCommands || [],
     simBalance: state.simBalance,
     messages: state.messages
   });

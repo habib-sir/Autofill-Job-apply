@@ -386,6 +386,33 @@ async function triggerCheckBalance() {
         finalBalance = res.data.simBalance;
         hasRealBalance = true;
       }
+
+      // If command was dispatched to phone, poll for up to 10 seconds for phone to execute and report back
+      if (res.data.commandId) {
+        const cmdId = res.data.commandId;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          await new Promise(r => setTimeout(r, 1000));
+          const stateRes = await apiFetch('/api/sms/state');
+          if (stateRes.ok && stateRes.data) {
+            const foundCmd = (stateRes.data.pendingCommands || []).find(c => c.id === cmdId);
+            if (foundCmd && foundCmd.status === 'COMPLETED' && foundCmd.parsedBalance) {
+              finalBalance = {
+                amount: foundCmd.parsedBalance,
+                currency: 'BDT',
+                lastChecked: new Date().toISOString(),
+                source: 'Teletalk *152# (লাইভ ফোন)'
+              };
+              hasRealBalance = true;
+              break;
+            }
+            if (stateRes.data.simBalance && stateRes.data.simBalance.amount) {
+              finalBalance = stateRes.data.simBalance;
+              hasRealBalance = true;
+              break;
+            }
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn('Backend balance check issue:', err);
