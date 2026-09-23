@@ -387,8 +387,24 @@ public class SmsGatewayService extends Service {
     }
 
     private void executeUssdRequest(String cmdId, String ussdCode) {
-        // Show high-priority notification with dial button so user sees it on phone screen
+        // Show high-priority notification with wake-lock and dial action
         showUssdNotification(ussdCode);
+
+        // Attempt direct call with ACTION_CALL so dial happens instantly
+        try {
+            Intent callIntent = new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + Uri.encode(ussdCode)));
+            callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (simSubscriptionId >= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+                callIntent.putExtra("android.telecom.extra.PHONE_ACCOUNT_HANDLE", String.valueOf(simSubscriptionId));
+                callIntent.putExtra("subscription", simSubscriptionId);
+            }
+            startActivity(callIntent);
+            sendBroadcastLog("📞 Triggered direct dial for " + ussdCode + ". Accessibility service is watching screen...");
+        } catch (SecurityException se) {
+            sendBroadcastLog("⚠️ Direct CALL_PHONE permission not granted, opened dialer UI.");
+        } catch (Exception e) {
+            Log.w(TAG, "Direct call launch note: " + e.getMessage());
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
@@ -401,26 +417,18 @@ public class SmsGatewayService extends Service {
                         @Override
                         public void onReceiveUssdResponse(TelephonyManager telephonyManager, String request, CharSequence returnMessage) {
                             String msg = returnMessage != null ? returnMessage.toString() : "";
-                            sendBroadcastLog("✅ USSD Response received: " + msg);
+                            sendBroadcastLog("✅ Telephony USSD Response received: " + msg);
                             reportUssdResult(cmdId, msg, ussdCode, "COMPLETED", null);
                         }
 
                         @Override
                         public void onReceiveUssdResponseFailed(TelephonyManager telephonyManager, String request, int failureCode) {
-                            sendBroadcastLog("⚠️ USSD auto-dial code " + failureCode + ". Tap the notification on your phone to dial " + ussdCode + ".");
-                            reportUssdResult(cmdId, null, ussdCode, "FAILED", "USSD requires user dial");
+                            sendBroadcastLog("ℹ️ System USSD dialog displayed (code " + failureCode + "). Accessibility Service will auto-capture screen balance.");
                         }
                     }, new Handler(Looper.getMainLooper()));
-                    return;
                 }
-            } catch (SecurityException se) {
-                sendBroadcastLog("⚠️ CALL_PHONE permission not granted for USSD. " + se.getMessage());
-            } catch (Exception e) {
-                Log.e(TAG, "USSD error", e);
-            }
+            } catch (Exception ignored) {}
         }
-
-        reportUssdResult(cmdId, null, ussdCode, "FAILED", "Tap notification on phone to dial");
     }
 
     private void reportUssdResult(String requestId, String rawResponse, String code, String status, String error) {

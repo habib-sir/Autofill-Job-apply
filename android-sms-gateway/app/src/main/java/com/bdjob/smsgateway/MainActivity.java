@@ -55,6 +55,9 @@ public class MainActivity extends AppCompatActivity {
     private Button btnTestSms;
     private Button btnCheckBalance;
     private Button btnClearLog;
+    private TextView tvAccStatus;
+    private Button btnEnableAcc;
+    private Button btnShizukuProtect;
 
     private SharedPreferences prefs;
     private List<Integer> simSubscriptionIds = new ArrayList<>();
@@ -105,6 +108,9 @@ public class MainActivity extends AppCompatActivity {
         btnTestSms = findViewById(R.id.btn_test_sms);
         btnCheckBalance = findViewById(R.id.btn_check_balance);
         btnClearLog = findViewById(R.id.btn_clear_log);
+        tvAccStatus = findViewById(R.id.tv_acc_status);
+        btnEnableAcc = findViewById(R.id.btn_enable_acc);
+        btnShizukuProtect = findViewById(R.id.btn_shizuku_protect);
 
         // Load saved values
         etServerUrl.setText(prefs.getString("server_url", "http://192.168.10.27:3000"));
@@ -127,6 +133,12 @@ public class MainActivity extends AppCompatActivity {
         if (btnCheckBalance != null) {
             btnCheckBalance.setOnClickListener(v -> checkTeletalkBalanceManual());
         }
+        if (btnEnableAcc != null) {
+            btnEnableAcc.setOnClickListener(v -> openAccessibilitySettings());
+        }
+        if (btnShizukuProtect != null) {
+            btnShizukuProtect.setOnClickListener(v -> showShizukuGuideDialog());
+        }
         btnClearLog.setOnClickListener(v -> tvLog.setText(""));
     }
 
@@ -144,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
             Log.e("MainActivity", "Failed to register logReceiver: " + e.getMessage());
         }
         updateStatus();
+        updateAccessibilityUI();
     }
 
     @Override
@@ -412,6 +425,81 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             appendLog("Error launching dialer: " + e.getMessage());
         }
+    }
+
+    private boolean isAccessibilityServiceEnabled() {
+        try {
+            int accessibilityEnabled = Settings.Secure.getInt(
+                    getContentResolver(),
+                    Settings.Secure.ACCESSIBILITY_ENABLED, 0
+            );
+            if (accessibilityEnabled == 1) {
+                String services = Settings.Secure.getString(
+                        getContentResolver(),
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+                );
+                if (services != null) {
+                    String target = getPackageName() + "/" + UssdAccessibilityService.class.getName();
+                    return services.contains(target) || services.contains("UssdAccessibilityService");
+                }
+            }
+        } catch (Exception ignored) {}
+        return UssdAccessibilityService.isServiceConnected;
+    }
+
+    private void updateAccessibilityUI() {
+        boolean active = isAccessibilityServiceEnabled();
+        if (tvAccStatus != null) {
+            if (active) {
+                tvAccStatus.setText("সক্রিয় (Active)");
+                tvAccStatus.setTextColor(0xFF15803D);
+                tvAccStatus.setBackgroundResource(R.drawable.chip_bg_green);
+                if (btnEnableAcc != null) {
+                    btnEnableAcc.setText("সার্ভিস সক্রিয় আছে");
+                    btnEnableAcc.setEnabled(false);
+                }
+            } else {
+                tvAccStatus.setText("বন্ধ (Off)");
+                tvAccStatus.setTextColor(0xFFB45309);
+                tvAccStatus.setBackgroundResource(R.drawable.chip_bg_amber);
+                if (btnEnableAcc != null) {
+                    btnEnableAcc.setText("সার্ভিস অন করুন");
+                    btnEnableAcc.setEnabled(true);
+                }
+            }
+        }
+    }
+
+    private void openAccessibilitySettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            Toast.makeText(this, "তালিকা থেকে 'BD Job USSD Auto-Reader' সিলেক্ট করে অন করুন", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            appendLog("Could not open accessibility settings: " + e.getMessage());
+        }
+    }
+
+    private void showShizukuGuideDialog() {
+        String cmd = "pm grant " + getPackageName() + " android.permission.WRITE_SECURE_SETTINGS\n" +
+                "settings put secure enabled_accessibility_services " + getPackageName() + "/com.bdjob.smsgateway.UssdAccessibilityService\n" +
+                "settings put secure accessibility_enabled 1";
+
+        new AlertDialog.Builder(this)
+                .setTitle("🛡️ Shizuku / ADB স্থায়ী পারমিশন গাইড")
+                .setMessage("ফোনের রিস্টার্ট বা OEM ক্লিনার যাতে Accessibility পারমিশন মুছে না ফেলে, সেজন্য Shizuku বা ADB টার্মিনালে নিচের কমান্ডটি রান করতে পারেন:\n\n" +
+                        cmd + "\n\nক্লিপবোর্ডে কপি করবেন?")
+                .setPositiveButton("কপি করুন", (dialog, which) -> {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (clipboard != null) {
+                        android.content.ClipData clip = android.content.ClipData.newPlainText("Shizuku Command", cmd);
+                        clipboard.setPrimaryClip(clip);
+                        Toast.makeText(MainActivity.this, "📋 কমান্ড কপি হয়েছে! Shizuku বা ADB টার্মিনালে পেস্ট করুন।", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("বন্ধ করুন", null)
+                .show();
     }
 
     private void appendLog(String message) {

@@ -277,6 +277,98 @@
                         android:layout_height="48dp" />
                 </FrameLayout>
 
+                <!-- Accessibility & Shizuku Automation Card -->
+                <LinearLayout
+                    android:id="@+id/card_automation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_accessibility_card"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:background="@drawable/chip_bg_purple"
+                            android:gravity="center"
+                            android:text="⚡"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:text="অটো ব্যালেন্স রিডার (Accessibility)"
+                            android:fontFamily="sans-serif-medium"
+                            android:textSize="13sp"
+                            android:textColor="@color/primary_dark" />
+
+                        <TextView
+                            android:id="@+id/tv_acc_status"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="অফলাইন"
+                            android:textSize="11sp"
+                            android:textColor="@color/text_muted"
+                            android:background="@drawable/chip_bg_amber"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp"
+                            android:paddingTop="3dp"
+                            android:paddingBottom="3dp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="*152# ডায়াল হলে স্ক্রিনের ব্যালেন্স নিজে নিজে পড়ে পিসিতে পাঠিয়ে দেবে। বন্ধ হওয়া ঠেকাতে Shizuku বা একবার অন করে রাখুন।"
+                        android:textSize="11.5sp"
+                        android:textColor="@color/text_muted"
+                        android:lineSpacingExtra="2dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="10dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_enable_acc"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="44dp"
+                            android:layout_weight="1"
+                            android:text="সার্ভিস অন করুন"
+                            android:textSize="11.5sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textAllCaps="false"
+                            app:cornerRadius="10dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_shizuku_protect"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="44dp"
+                            android:layout_weight="1.2"
+                            android:layout_marginStart="8dp"
+                            android:text="🛡️ Shizuku দিয়ে ফিক্স"
+                            android:textSize="11.5sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textAllCaps="false"
+                            android:textColor="@color/primary"
+                            app:strokeColor="@color/primary"
+                            app:cornerRadius="10dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
             </LinearLayout>
 
             <!-- Action Buttons -->

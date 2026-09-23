@@ -17,6 +17,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Permission grantable via Shizuku / ADB to prevent Accessibility from getting turned off -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" xmlns:tools="http://schemas.android.com/tools" />
 
     <application
         android:allowBackup="true"
@@ -43,6 +45,20 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Automated USSD Screen Reader & Auto-Dismiss Accessibility Service -->
+        <service
+            android:name=".UssdAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:label="BD Job USSD Auto-Reader"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/ussd_accessibility_service_config" />
+        </service>
 
         <!-- Broadcast Receiver for Incoming Teletalk 16222 SMS -->
         <receiver

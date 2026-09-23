@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">BD Job SMS Gateway</string>
+    <string name="accessibility_service_description">Reads Teletalk *152# balance popups automatically and sends balance to Chrome Extension.</string>
 </resources>
