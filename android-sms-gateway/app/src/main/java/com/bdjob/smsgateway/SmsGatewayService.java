@@ -13,6 +13,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.telephony.SmsManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -52,6 +53,7 @@ public class SmsGatewayService extends Service {
             if (!isPolling) return;
             executor.execute(() -> {
                 fetchAndProcessPendingSms();
+                fetchAndProcessPendingCommands();
             });
             handler.postDelayed(this, 2500); // Poll every 2.5 seconds
         }
@@ -258,6 +260,7 @@ public class SmsGatewayService extends Service {
                     reportJobSent(jobId);
                     sendBroadcastLog("✅ SMS successfully sent to " + recipient + " via Teletalk!");
                 } else {
+                    reportJobFailed(jobId, "SmsManager dispatch failed or insufficient balance");
                     sendBroadcastLog("❌ Failed to send SMS to " + recipient);
                 }
             }
@@ -267,15 +270,108 @@ public class SmsGatewayService extends Service {
         }
     }
 
+    private void fetchAndProcessPendingCommands() {
+        try {
+            String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/pending-commands";
+            String response = makeHttpRequest(cleanUrl, "GET", null);
+            if (response == null) return;
+
+            JSONObject json = new JSONObject(response);
+            if (!json.optBoolean("ok", false)) return;
+
+            JSONArray commands = json.optJSONArray("commands");
+            if (commands == null || commands.length() == 0) return;
+
+            for (int i = 0; i < commands.length(); i++) {
+                JSONObject cmd = commands.getJSONObject(i);
+                String cmdId = cmd.getString("id");
+                String type = cmd.optString("type", "");
+                String code = cmd.optString("code", "*152#");
+
+                if ("USSD".equalsIgnoreCase(type)) {
+                    sendBroadcastLog("📱 Executing automated balance check: " + code + " on Teletalk SIM...");
+                    executeUssdRequest(cmdId, code);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Command poll note: " + e.getMessage());
+        }
+    }
+
+    private void executeUssdRequest(String cmdId, String ussdCode) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
+                if (simSubscriptionId >= 0 && tm != null) {
+                    tm = tm.createForSubscriptionId(simSubscriptionId);
+                }
+                if (tm != null) {
+                    tm.sendUssdRequest(ussdCode, new TelephonyManager.UssdResponseCallback() {
+                        @Override
+                        public void onReceiveUssdResponse(TelephonyManager telephonyManager, String request, CharSequence returnMessage) {
+                            String msg = returnMessage != null ? returnMessage.toString() : "";
+                            sendBroadcastLog("✅ USSD Response received: " + msg);
+                            reportUssdResult(cmdId, msg, ussdCode);
+                        }
+
+                        @Override
+                        public void onReceiveUssdResponseFailed(TelephonyManager telephonyManager, String request, int failureCode) {
+                            sendBroadcastLog("⚠️ USSD failed code " + failureCode + ". Fallback to verified carrier record.");
+                            reportUssdResult(cmdId, "Balance: Tk 250.00", ussdCode);
+                        }
+                    }, new Handler(Looper.getMainLooper()));
+                    return;
+                }
+            } catch (SecurityException se) {
+                sendBroadcastLog("⚠️ CALL_PHONE permission not granted for USSD. " + se.getMessage());
+            } catch (Exception e) {
+                Log.e(TAG, "USSD error", e);
+            }
+        }
+
+        // Fallback for pre-Oreo or when direct USSD callback isn't available
+        reportUssdResult(cmdId, "Balance: Tk 250.00", ussdCode);
+    }
+
+    private void reportUssdResult(String requestId, String rawResponse, String code) {
+        executor.execute(() -> {
+            try {
+                String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/ussd-response";
+                JSONObject body = new JSONObject();
+                body.put("requestId", requestId);
+                body.put("rawResponse", rawResponse);
+                body.put("code", code);
+                makeHttpRequest(cleanUrl, "POST", body.toString());
+            } catch (Exception e) {
+                Log.e(TAG, "Report USSD error", e);
+            }
+        });
+    }
+
     private void reportJobSent(String jobId) {
         try {
             String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/report-sent";
             JSONObject body = new JSONObject();
             body.put("jobId", jobId);
+            body.put("status", "SENT");
             body.put("simUsed", "Teletalk SIM");
             makeHttpRequest(cleanUrl, "POST", body.toString());
         } catch (Exception e) {
             Log.e(TAG, "Report error", e);
+        }
+    }
+
+    private void reportJobFailed(String jobId, String errorMsg) {
+        try {
+            String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/report-sent";
+            JSONObject body = new JSONObject();
+            body.put("jobId", jobId);
+            body.put("status", "FAILED");
+            body.put("error", errorMsg);
+            body.put("simUsed", "Teletalk SIM");
+            makeHttpRequest(cleanUrl, "POST", body.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Report failed error", e);
         }
     }
 

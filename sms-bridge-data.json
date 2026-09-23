@@ -1,135 +1,31 @@
 {
   "pairedDevice": null,
   "pairingToken": "BT-XYXJQV",
-  "pendingJobs": [
+  "pendingJobs": [],
+  "simBalance": {
+    "amount": "245.50",
+    "currency": "BDT",
+    "lastChecked": "2026-09-23T11:11:22.844Z",
+    "source": "Teletalk USSD *152# (যাচাইকৃত)"
+  },
+  "messages": [],
+  "pendingCommands": [
     {
-      "id": "job_1788432743253_55x8",
-      "recipient": "16222",
-      "body": "BPSC 7A8B9C",
-      "type": "1ST_SMS",
-      "orgCode": "BPSC",
-      "userId": "7A8B9C",
-      "pin": "",
-      "applicationId": "",
-      "status": "SENT",
-      "createdAt": "2026-09-03T10:52:23.253Z",
-      "sentAt": "2026-09-03T10:52:37.573Z",
-      "simUsed": "Teletalk SIM"
+      "id": "ussd_1790161869268",
+      "type": "USSD",
+      "code": "*152#",
+      "status": "COMPLETED",
+      "createdAt": "2026-09-23T11:11:09.268Z",
+      "rawResponse": "Your balance is Tk 245.50. Validity: 31-12-2026",
+      "parsedBalance": "245.50",
+      "completedAt": "2026-09-23T11:11:17.011Z"
     },
     {
-      "id": "job_1789040423313_o9ao",
-      "recipient": "16222",
-      "body": "BPSC 7A8B9C",
-      "type": "CUSTOM",
-      "orgCode": "",
-      "userId": "",
-      "pin": "",
-      "applicationId": "",
+      "id": "ussd_1790161882844",
+      "type": "USSD",
+      "code": "*152#",
       "status": "PENDING",
-      "createdAt": "2026-09-10T11:40:23.313Z",
-      "sentAt": null
-    }
-  ],
-  "messages": [
-    {
-      "id": "msg_welcome",
-      "direction": "system",
-      "sender": "BD Job SMS Assistant",
-      "recipient": "System",
-      "body": "Welcome to BD Job Autofill Phone SMS Gateway. Pair your Android phone with Teletalk SIM to send application fees automatically.",
-      "timestamp": "2026-09-03T10:52:14.777Z"
-    },
-    {
-      "id": "msg_1788432743253",
-      "direction": "outgoing",
-      "status": "SENT_FROM_PHONE",
-      "jobId": "job_1788432743253_55x8",
-      "sender": "Desktop Extension",
-      "recipient": "16222",
-      "body": "BPSC 7A8B9C",
-      "timestamp": "2026-09-03T10:52:23.253Z"
-    },
-    {
-      "id": "inc_1788432762765",
-      "direction": "incoming",
-      "sender": "16222",
-      "recipient": "My Teletalk Phone",
-      "body": "Applicant's Name: MD ABDUR RAHIM, Tk. 220 will be charged as application fee. Your PIN is 87654321. To pay fee type: BPSC YES 87654321 and send to 16222",
-      "parsed": {
-        "isTeletalk": true,
-        "type": "PIN_NOTIFICATION",
-        "pin": "87654321",
-        "fee": "220",
-        "applicantName": "MD ABDUR RAHIM",
-        "userId": null,
-        "password": null,
-        "suggestedReply": "BPSC YES 87654321"
-      },
-      "timestamp": "2026-09-03T10:52:42.765Z"
-    },
-    {
-      "id": "inc_1788592676243",
-      "direction": "incoming",
-      "sender": "16222",
-      "recipient": "My Teletalk Phone",
-      "body": "MD ABDUR RAHIM, Tk. 220 will be charged as application fee for BPSC. Your PIN is 54891234. To pay fee type BPSC YES 54891234 and send to 16222.",
-      "parsed": {
-        "isTeletalk": true,
-        "type": "PIN_NOTIFICATION",
-        "pin": "54891234",
-        "fee": "220",
-        "applicantName": null,
-        "userId": null,
-        "password": null,
-        "suggestedReply": null
-      },
-      "timestamp": "2026-09-05T07:17:56.243Z"
-    },
-    {
-      "id": "inc_1788592688030",
-      "direction": "incoming",
-      "sender": "16222",
-      "recipient": "My Teletalk Phone",
-      "body": "87654321",
-      "parsed": {
-        "isTeletalk": false,
-        "type": "UNKNOWN",
-        "pin": null,
-        "fee": null,
-        "applicantName": null,
-        "userId": null,
-        "password": null,
-        "suggestedReply": null
-      },
-      "timestamp": "2026-09-05T07:18:08.030Z"
-    },
-    {
-      "id": "inc_1788592693438",
-      "direction": "incoming",
-      "sender": "16222",
-      "recipient": "My Teletalk Phone",
-      "body": "87654321",
-      "parsed": {
-        "isTeletalk": true,
-        "type": "PIN_NOTIFICATION",
-        "pin": "87654321",
-        "fee": null,
-        "applicantName": null,
-        "userId": null,
-        "password": null,
-        "suggestedReply": null
-      },
-      "timestamp": "2026-09-05T07:18:13.438Z"
-    },
-    {
-      "id": "msg_1789040423313",
-      "direction": "outgoing",
-      "status": "QUEUED_FOR_PHONE",
-      "jobId": "job_1789040423313_o9ao",
-      "sender": "Desktop Extension",
-      "recipient": "16222",
-      "body": "BPSC 7A8B9C",
-      "timestamp": "2026-09-10T11:40:23.313Z"
+      "createdAt": "2026-09-23T11:11:22.844Z"
     }
   ]
 }

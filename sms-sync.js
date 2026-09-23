@@ -43,12 +43,30 @@ let currentFilter = 'all';
 let currentSearch = '';
 let isServerOnline = false;
 let pollingInterval = null;
+let activeTrackingJobId = null;
+let activeTrackingInterval = null;
+let currentSimBalance = null;
 
 // DOM Elements: Header & Status
 const serverStatusPill = document.getElementById('server-status-pill');
 const serverStatusDot = document.getElementById('server-status-dot');
 const serverStatusText = document.getElementById('server-status-text');
 const refreshStateBtn = document.getElementById('refresh-state-btn');
+
+// DOM Elements: Teletalk SIM Balance Card
+const simBalanceCard = document.getElementById('sim-balance-card');
+const teletalkBalanceVal = document.getElementById('teletalk-balance-val');
+const balanceLastUpdated = document.getElementById('balance-last-updated');
+const balanceSourceTag = document.getElementById('balance-source-tag');
+const checkBalanceBtn = document.getElementById('check-balance-btn');
+const checkBalanceIcon = document.getElementById('check-balance-icon');
+const checkBalanceText = document.getElementById('check-balance-text');
+const dialUssdBtn = document.getElementById('dial-ussd-btn');
+const toggleBalanceEditBtn = document.getElementById('toggle-balance-edit-btn');
+const balanceEditBox = document.getElementById('balance-edit-box');
+const balanceInputField = document.getElementById('balance-input-field');
+const saveBalanceBtn = document.getElementById('save-balance-btn');
+const cancelBalanceBtn = document.getElementById('cancel-balance-btn');
 
 // DOM Elements: Section 1 - 16222 Direct SMS Composer
 const selectSavedApp = document.getElementById('select-saved-app');
@@ -72,6 +90,14 @@ const customServerUrlInput = document.getElementById('custom-server-url-input');
 const saveServerUrlBtn = document.getElementById('save-server-url-btn');
 const resetServerUrlBtn = document.getElementById('reset-server-url-btn');
 
+// DOM Elements: Active Job Status Tracker (Sent from Phone indicator)
+const activeJobTracker = document.getElementById('active-job-tracker');
+const trackerStatusIcon = document.getElementById('tracker-status-icon');
+const trackerStatusTitle = document.getElementById('tracker-status-title');
+const trackerJobId = document.getElementById('tracker-job-id');
+const trackerStatusDesc = document.getElementById('tracker-status-desc');
+const trackerDetails = document.getElementById('tracker-details');
+
 // DOM Elements: Phone App Pairing Panel
 const pairingServerUrlInput = document.getElementById('pairing-server-url');
 const pairingCodeInput = document.getElementById('pairing-code');
@@ -86,9 +112,12 @@ const smsCountBadge = document.getElementById('sms-count-badge');
 const filterAllBtn = document.getElementById('filter-all-btn');
 const filter16222Btn = document.getElementById('filter-16222-btn');
 const filterSentBtn = document.getElementById('filter-sent-btn');
+const filterPendingBtn = document.getElementById('filter-pending-btn');
 const refreshFeedBtn = document.getElementById('refresh-feed-btn');
 const clearFeedBtn = document.getElementById('clear-feed-btn');
 const smsSearchInput = document.getElementById('sms-search-input');
+const clearStatusBanner = document.getElementById('clear-status-banner');
+const loadSampleFeedBtn = document.getElementById('load-sample-feed-btn');
 const smsToast = document.getElementById('sms-toast');
 
 /**
@@ -199,6 +228,14 @@ function parseTeletalkSms(body) {
   const payTypeMatch = text.match(/type\s*(?:is|:)?\s*([A-Za-z0-9]+\s+YES\s+[0-9]+)/i) ||
                        text.match(/([A-Za-z0-9]+\s+YES\s+[0-9]{6,10})/i);
 
+  // Balance pattern check (from *152# or Teletalk notifications)
+  const balanceMatch = text.match(/(?:current\s*balance|main\s*balance|balance|acc\s*balance)\s*(?:is|:|=|-)?\s*(?:Tk\.?|BDT)?\s*([0-9]+(?:\.[0-9]{1,2})?)/i) ||
+                       text.match(/(?:Tk\.?|BDT)\s*([0-9]+(?:\.[0-9]{1,2})?)\s*(?:balance|remaining)/i) ||
+                       text.match(/(?:Balance|Tk\.?)\s*[:=]\s*([0-9]+(?:\.[0-9]{1,2})?)/i);
+  if (balanceMatch) {
+    result.simBalance = balanceMatch[1];
+  }
+
   // 2nd Confirmation SMS reply with User ID & Password
   const userMatch = text.match(/User\s*ID\s*(?:is|:)?\s*([A-Za-z0-9]+)/i);
   const passMatch = text.match(/Password\s*(?:is|:)?\s*([A-Za-z0-9@#\$%\^&\*!]+)/i);
@@ -242,15 +279,156 @@ function parseTeletalkSms(body) {
 }
 
 /**
+ * Update Teletalk SIM Balance Card UI
+ */
+function updateBalanceUI(simBalance) {
+  if (!simBalance) return;
+  currentSimBalance = simBalance;
+
+  if (teletalkBalanceVal) {
+    if (simBalance.amount !== null && simBalance.amount !== undefined && simBalance.amount !== '') {
+      teletalkBalanceVal.textContent = `৳ ${simBalance.amount}`;
+    } else {
+      teletalkBalanceVal.textContent = 'ব্যালেন্স যাচাই করুন';
+    }
+  }
+
+  if (balanceSourceTag && simBalance.source) {
+    balanceSourceTag.textContent = simBalance.source;
+  }
+
+  if (balanceLastUpdated) {
+    if (simBalance.lastChecked) {
+      const d = new Date(simBalance.lastChecked);
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateStr = d.toLocaleDateString();
+      balanceLastUpdated.textContent = `(সর্বশেষ চেক: ${timeStr}, ${dateStr})`;
+    } else {
+      balanceLastUpdated.textContent = '(*152# ডায়াল করুন)';
+    }
+  }
+}
+
+/**
+ * Save updated Teletalk balance
+ */
+async function saveBalance(amount, source = 'ম্যানুয়াল আপডেট') {
+  const clean = String(amount).replace(/[^0-9.]/g, '').trim();
+  if (!clean) {
+    showToast('অনুগ্রহ করে সঠিক টাকার পরিমাণ লিখুন');
+    return false;
+  }
+
+  const updatedObj = {
+    amount: clean,
+    currency: 'BDT',
+    lastChecked: new Date().toISOString(),
+    source
+  };
+
+  updateBalanceUI(updatedObj);
+  try {
+    localStorage.setItem('bd_job_teletalk_balance', JSON.stringify(updatedObj));
+  } catch (e) {}
+
+  showToast(`💰 টেলিটক ব্যালেন্স সংরক্ষণ করা হয়েছে: ৳ ${clean}`);
+
+  // Sync to server if online
+  try {
+    await apiFetch('/api/sms/balance', {
+      method: 'POST',
+      body: JSON.stringify({ amount: clean, source })
+    });
+  } catch (e) {}
+
+  return true;
+}
+
+/**
+ * Automated 1-Click Teletalk Balance Check (*152#)
+ * Whenever user clicks the button, checks and updates balance right there without typing!
+ */
+async function triggerCheckBalance() {
+  if (checkBalanceBtn) {
+    checkBalanceBtn.disabled = true;
+    checkBalanceBtn.style.opacity = '0.85';
+  }
+  if (checkBalanceIcon) {
+    checkBalanceIcon.textContent = '🔄';
+    checkBalanceIcon.style.display = 'inline-block';
+    checkBalanceIcon.style.animation = 'spin 0.8s linear infinite';
+  }
+  if (checkBalanceText) {
+    checkBalanceText.textContent = 'ব্যালেন্স চেক হচ্ছে...';
+  }
+  if (teletalkBalanceVal) {
+    teletalkBalanceVal.innerHTML = '<span style="font-size: 20px; opacity: 0.85;">🔄 চেকিং...</span>';
+  }
+  if (balanceLastUpdated) {
+    balanceLastUpdated.textContent = '(*152# রিকোয়েস্ট প্রসেস হচ্ছে...)';
+  }
+
+  try {
+    const res = await apiFetch('/api/sms/check-balance', {
+      method: 'POST',
+      body: JSON.stringify({ code: '*152#' })
+    });
+
+    if (res.ok && res.data && res.data.simBalance) {
+      updateBalanceUI(res.data.simBalance);
+      try {
+        localStorage.setItem('bd_job_teletalk_balance', JSON.stringify(res.data.simBalance));
+      } catch (e) {}
+
+      // Pulse visual effect on balance
+      if (teletalkBalanceVal) {
+        teletalkBalanceVal.style.transition = 'transform 0.25s ease';
+        teletalkBalanceVal.style.transform = 'scale(1.12)';
+        setTimeout(() => {
+          if (teletalkBalanceVal) teletalkBalanceVal.style.transform = 'scale(1)';
+        }, 300);
+      }
+
+      showToast(`⚡ টেলিটক সিম ব্যালেন্স: ৳ ${res.data.simBalance.amount}`);
+    } else {
+      showToast('ব্যালেন্স চেক করা যায়নি। পুনরায় চেষ্টা করুন।');
+      if (currentSimBalance) updateBalanceUI(currentSimBalance);
+    }
+  } catch (err) {
+    console.error('Check balance error:', err);
+    showToast('ব্যালেন্স চেক করতে সমস্যা হয়েছে');
+    if (currentSimBalance) updateBalanceUI(currentSimBalance);
+  } finally {
+    if (checkBalanceBtn) {
+      checkBalanceBtn.disabled = false;
+      checkBalanceBtn.style.opacity = '1';
+    }
+    if (checkBalanceIcon) {
+      checkBalanceIcon.textContent = '⚡';
+      checkBalanceIcon.style.animation = 'none';
+    }
+    if (checkBalanceText) {
+      checkBalanceText.textContent = 'Check Balance (ব্যালেন্স চেক করুন)';
+    }
+  }
+}
+
+/**
  * Load local messages from chrome.storage or localStorage
  */
 async function loadLocalMessages() {
+  const isExplicitlyCleared = localStorage.getItem('bd_job_sms_cleared') === 'true';
+  if (isExplicitlyCleared) {
+    if (clearStatusBanner) clearStatusBanner.style.display = 'flex';
+    return [];
+  }
+
   try {
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       const stored = await new Promise(resolve => {
         chrome.storage.local.get([STORAGE_KEY_MESSAGES], res => resolve(res[STORAGE_KEY_MESSAGES]));
       });
-      if (Array.isArray(stored) && stored.length > 0) {
+      if (Array.isArray(stored)) {
         return stored;
       }
     }
@@ -260,9 +438,9 @@ async function loadLocalMessages() {
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY_MESSAGES);
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -270,7 +448,7 @@ async function loadLocalMessages() {
     console.debug('localStorage read skipped:', e);
   }
 
-  return DEFAULT_INITIAL_MESSAGES;
+  return [];
 }
 
 /**
@@ -293,15 +471,32 @@ async function saveLocalMessages(messages) {
  * Merge new messages with existing local list without duplicates
  */
 function mergeMessages(existingList, incomingList) {
+  const clearedAt = localStorage.getItem('bd_job_sms_cleared_at');
+  const clearedTime = clearedAt ? new Date(clearedAt).getTime() : 0;
+
   const merged = [...existingList];
   for (const item of incomingList) {
     if (!item) continue;
-    const exists = merged.some(m => {
+    const itemTime = item.timestamp ? new Date(item.timestamp).getTime() : 0;
+    if (clearedTime > 0 && itemTime > 0 && itemTime <= clearedTime) {
+      continue; // Skip messages from before the user cleared
+    }
+
+    const existingIdx = merged.findIndex(m => {
       if (m.id && item.id && m.id === item.id) return true;
+      if (m.jobId && item.jobId && m.jobId === item.jobId) return true;
       if (m.body === item.body && Math.abs(new Date(m.timestamp || 0) - new Date(item.timestamp || 0)) < 2000) return true;
       return false;
     });
-    if (!exists) {
+
+    if (existingIdx !== -1) {
+      // Update status if server has newer status (e.g. SENT_FROM_PHONE)
+      if (item.status && item.status !== merged[existingIdx].status) {
+        merged[existingIdx].status = item.status;
+        if (item.simUsed) merged[existingIdx].simUsed = item.simUsed;
+        if (item.sentAt) merged[existingIdx].sentAt = item.sentAt;
+      }
+    } else {
       if (!item.parsed && item.body) {
         item.parsed = parseTeletalkSms(item.body);
       }
@@ -329,7 +524,9 @@ function renderFeed() {
       (m.parsed && m.parsed.isTeletalk)
     );
   } else if (currentFilter === 'sent') {
-    filtered = filtered.filter(m => m.direction === 'outgoing');
+    filtered = filtered.filter(m => m.direction === 'outgoing' && m.status === 'SENT_FROM_PHONE');
+  } else if (currentFilter === 'pending') {
+    filtered = filtered.filter(m => m.direction === 'outgoing' && m.status !== 'SENT_FROM_PHONE');
   }
 
   if (currentSearch) {
@@ -367,21 +564,39 @@ function renderFeed() {
     const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
     const dateStr = msg.timestamp ? new Date(msg.timestamp).toLocaleDateString() : '';
 
+    const isSent = msg.status === 'SENT_FROM_PHONE';
+    const isFailed = msg.status === 'FAILED_FROM_PHONE';
+    const isPending = !isIncoming && !isSent && !isFailed;
+
     let bubbleClass = 'msg-bubble';
     if (is16222) bubbleClass += ' msg-bubble-16222';
     else if (isIncoming) bubbleClass += ' msg-bubble--incoming';
     else bubbleClass += ' msg-bubble-outgoing';
 
+    // Status badge indicator
+    let statusBadgeHtml = '';
+    if (!isIncoming) {
+      if (isSent) {
+        statusBadgeHtml = `<span style="background: #dcfce7; color: #15803d; border: 1px solid #86efac; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">✅ মোবাইল এ্যাপ থেকে প্রেরিত (Sent)</span>`;
+      } else if (isFailed) {
+        statusBadgeHtml = `<span style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">❌ পাঠানো ব্যর্থ (Failed)</span>`;
+      } else {
+        statusBadgeHtml = `<span style="background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">⏳ মোবাইল এ্যাপে অপেক্ষমান (Pending)</span>`;
+      }
+    } else if (msg.status) {
+      statusBadgeHtml = `<span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${escapeHtml(msg.status)}</span>`;
+    }
+
     html += `
-      <div class="${bubbleClass}" style="margin-bottom: 10px; border-radius: 8px; padding: 12px 14px;">
-        <div class="msg-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px;">
-          <div style="display: flex; align-items: center; gap: 6px;">
+      <div class="${bubbleClass}" style="margin-bottom: 10px; border-radius: 8px; padding: 12px 14px; border: ${!isIncoming && isSent ? '1px solid #bbf7d0' : !isIncoming && isPending ? '1px solid #fed7aa' : '1px solid var(--color-border)'};">
+        <div class="msg-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px; flex-wrap: wrap; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
             <span style="font-weight: 700; ${is16222 ? 'color: #0284c7;' : isIncoming ? 'color: #166534;' : 'color: #1d4ed8;'}">
-              ${isIncoming ? (is16222 ? '📱 16222 (Teletalk Reply)' : `📩 From: ${escapeHtml(msg.sender || 'Unknown')}`) : '📲 Sent from Phone (To: ' + escapeHtml(msg.recipient || '16222') + ')'}
+              ${isIncoming ? (is16222 ? '📱 16222 (Teletalk Reply)' : `📩 From: ${escapeHtml(msg.sender || 'Unknown')}`) : '📲 Outbox SMS (To: ' + escapeHtml(msg.recipient || '16222') + ')'}
             </span>
-            ${msg.status ? `<span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${escapeHtml(msg.status)}</span>` : ''}
+            ${statusBadgeHtml}
           </div>
-          <span style="color: var(--color-text-muted);">${dateStr} ${timeStr}</span>
+          <span style="color: var(--color-text-muted); font-size: 10px;">${dateStr} ${timeStr}</span>
         </div>
 
         <!-- Highlighted Teletalk Details -->
@@ -414,6 +629,26 @@ function renderFeed() {
         <div style="font-size: 13px; color: var(--color-text); line-height: 1.45; word-break: break-word; font-family: ${is16222 ? 'monospace' : 'inherit'};">
           ${escapeHtml(msg.body || '')}
         </div>
+
+        <!-- Phone App Sent / Pending Status Banner for Outgoing -->
+        ${!isIncoming && isSent ? `
+          <div style="margin-top: 8px; font-size: 11px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+            <span>📱 সিম: <strong>${escapeHtml(msg.simUsed || 'Teletalk SIM')}</strong> &bull; পাঠানোর সময়: <strong>${msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : timeStr}</strong></span>
+            <span style="font-weight: 700; color: #15803d;">সফলভাবে প্রেরিত</span>
+          </div>
+        ` : ''}
+
+        ${!isIncoming && isPending ? `
+          <div style="margin-top: 8px; font-size: 11px; color: #92400e; background: #fffbeb; border: 1px solid #fed7aa; padding: 8px 10px; border-radius: 6px;">
+            <div style="font-weight: 600; margin-bottom: 4px;">⏳ আপনার ফোনের 'BD Job SMS Gateway' এ্যাপে অপেক্ষমান রয়েছে।</div>
+            <div style="display: flex; gap: 6px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+              <span style="color: #78350f; font-size: 10px;">ফোন এ্যাপ চালু থাকলে স্বয়ংক্রিয়ভাবে পাঠাবে বা সরাসরি পাঠান:</span>
+              <a href="sms:${escapeHtml(msg.recipient || '16222')}?body=${encodeURIComponent(msg.body || '')}" class="btn btn-secondary btn-sm" style="font-size: 10px; padding: 2px 8px; text-decoration: none; font-weight: 600;">
+                📲 ফোনে খুলুন
+              </a>
+            </div>
+          </div>
+        ` : ''}
 
         <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
           <button class="btn btn-secondary btn-sm copy-msg-body-action" data-text="${escapeHtml(msg.body || '')}" style="font-size: 10px; padding: 2px 6px;" type="button">
@@ -529,6 +764,11 @@ async function checkServerStatus() {
       serverStatusText.textContent = `🟢 ${devName} (${base.replace(/^https?:\/\//, '')})`;
     }
 
+    // Sync Teletalk balance
+    if (result.data.simBalance) {
+      updateBalanceUI(result.data.simBalance);
+    }
+
     // Merge server messages with local messages
     if (Array.isArray(result.data.messages)) {
       const merged = mergeMessages(feedMessages, result.data.messages);
@@ -549,6 +789,102 @@ async function checkServerStatus() {
       pairingPhoneStatus.textContent = 'Phone status: cannot reach the gateway server right now.';
     }
   }
+}
+
+/**
+ * Track an outgoing SMS job in real-time until confirmed sent by phone
+ */
+function startTrackingJob(jobId, msgRef) {
+  activeTrackingJobId = jobId;
+  if (activeTrackingInterval) clearInterval(activeTrackingInterval);
+
+  if (activeJobTracker) {
+    activeJobTracker.style.display = 'block';
+    activeJobTracker.style.background = '#fffbeb';
+    activeJobTracker.style.border = '1px solid #fed7aa';
+    if (trackerStatusIcon) trackerStatusIcon.textContent = '⏳';
+    if (trackerStatusTitle) {
+      trackerStatusTitle.textContent = 'মোবাইল এ্যাপে অপেক্ষমান... (Pending in Phone App)';
+      trackerStatusTitle.style.color = '#9a3412';
+    }
+    if (trackerJobId) trackerJobId.textContent = `Job: ${jobId.substring(jobId.length - 8)}`;
+    if (trackerStatusDesc) {
+      trackerStatusDesc.innerHTML = 'এসএমএসটি গেটওয়েতে জমা হয়েছে। আপনার ফোনের <strong>BD Job SMS Gateway</strong> এ্যাপটি এটি গ্রহণ করে টেলিটক সিম থেকে পাঠাবে...';
+      trackerStatusDesc.style.color = '#78350f';
+    }
+    if (trackerDetails) trackerDetails.style.display = 'none';
+  }
+
+  let attempts = 0;
+  activeTrackingInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > 60) {
+      clearInterval(activeTrackingInterval);
+      return;
+    }
+
+    const res = await apiFetch('/api/sms/state');
+    if (res.ok && res.data) {
+      if (res.data.simBalance) updateBalanceUI(res.data.simBalance);
+
+      const foundJob = (res.data.pendingJobs || []).find(j => j.id === jobId);
+      const foundMsg = (res.data.messages || []).find(m => m.jobId === jobId || m.id === msgRef.id);
+
+      const isSent = (foundJob && foundJob.status === 'SENT') || (foundMsg && foundMsg.status === 'SENT_FROM_PHONE');
+      const isFailed = (foundJob && foundJob.status === 'FAILED') || (foundMsg && foundMsg.status === 'FAILED_FROM_PHONE');
+
+      if (isSent) {
+        clearInterval(activeTrackingInterval);
+        const simName = (foundJob && foundJob.simUsed) || (foundMsg && foundMsg.simUsed) || 'Teletalk SIM';
+        const sentTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        if (activeJobTracker) {
+          activeJobTracker.style.background = '#f0fdf4';
+          activeJobTracker.style.border = '1px solid #86efac';
+          if (trackerStatusIcon) trackerStatusIcon.textContent = '✅';
+          if (trackerStatusTitle) {
+            trackerStatusTitle.textContent = 'মোবাইল এ্যাপ থেকে সফলভাবে পাঠানো হয়েছে! (Sent)';
+            trackerStatusTitle.style.color = '#15803d';
+          }
+          if (trackerStatusDesc) {
+            trackerStatusDesc.innerHTML = 'আপনার ফোনের <strong>BD Job SMS Gateway</strong> এ্যাপ সফলভাবে টেলিটক সিম ব্যবহার করে ১৬২২২ নম্বরে এসএমএসটি পাঠিয়েছে।';
+            trackerStatusDesc.style.color = '#166534';
+          }
+          if (trackerDetails) {
+            trackerDetails.style.display = 'block';
+            trackerDetails.innerHTML = `📱 সিম: <strong>${escapeHtml(simName)}</strong> &bull; পাঠানোর সময়: <strong>${sentTimeStr}</strong>`;
+          }
+        }
+
+        // Update local message status
+        msgRef.status = 'SENT_FROM_PHONE';
+        msgRef.simUsed = simName;
+        msgRef.sentAt = new Date().toISOString();
+        await saveLocalMessages(feedMessages);
+        renderFeed();
+
+        showToast('✅ মোবাইল এ্যাপ থেকে এসএমএস পাঠানো সম্পন্ন হয়েছে!');
+      } else if (isFailed) {
+        clearInterval(activeTrackingInterval);
+        if (activeJobTracker) {
+          activeJobTracker.style.background = '#fef2f2';
+          activeJobTracker.style.border = '1px solid #fca5a5';
+          if (trackerStatusIcon) trackerStatusIcon.textContent = '❌';
+          if (trackerStatusTitle) {
+            trackerStatusTitle.textContent = 'মোবাইল এ্যাপ থেকে পাঠানো ব্যর্থ হয়েছে (Failed)';
+            trackerStatusTitle.style.color = '#991b1b';
+          }
+          if (trackerStatusDesc) {
+            trackerStatusDesc.innerHTML = 'ফোন থেকে এসএমএস পাঠানো যায়নি। অনুগ্রহ করে ফোনে পর্যাপ্ত টেলিটক ব্যালেন্স ও নেটওয়ার্ক চেক করুন।';
+            trackerStatusDesc.style.color = '#7f1d1d';
+          }
+        }
+        msgRef.status = 'FAILED_FROM_PHONE';
+        await saveLocalMessages(feedMessages);
+        renderFeed();
+      }
+    }
+  }, 2000);
 }
 
 /**
@@ -610,7 +946,7 @@ async function handleSendCustomSms() {
     recipient,
     body,
     parsed,
-    status: 'DISPATCHING',
+    status: 'QUEUED_FOR_PHONE',
     timestamp: new Date().toISOString()
   };
 
@@ -629,7 +965,16 @@ async function handleSendCustomSms() {
     })
   });
 
-  if (result.ok) {
+  if (result.ok && result.data && result.data.job) {
+    const job = result.data.job;
+    newMsg.jobId = job.id;
+    newMsg.status = 'QUEUED_FOR_PHONE';
+    await saveLocalMessages(feedMessages);
+    renderFeed();
+    setCustomSmsStatus(`📤 Queued to phone app. Open the app on your phone to send.`, 'success');
+    showToast(`📲 SMS queued for Phone Gateway (${recipient})`);
+    startTrackingJob(job.id, newMsg);
+  } else if (result.ok) {
     newMsg.status = 'DISPATCHED_TO_PHONE';
     await saveLocalMessages(feedMessages);
     renderFeed();
@@ -818,12 +1163,14 @@ async function init() {
     if (filterAllBtn) filterAllBtn.className = filter === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
     if (filter16222Btn) filter16222Btn.className = filter === '16222' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
     if (filterSentBtn) filterSentBtn.className = filter === 'sent' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+    if (filterPendingBtn) filterPendingBtn.className = filter === 'pending' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
     renderFeed();
   }
 
   if (filterAllBtn) filterAllBtn.addEventListener('click', () => setFeedFilter('all'));
   if (filter16222Btn) filter16222Btn.addEventListener('click', () => setFeedFilter('16222'));
   if (filterSentBtn) filterSentBtn.addEventListener('click', () => setFeedFilter('sent'));
+  if (filterPendingBtn) filterPendingBtn.addEventListener('click', () => setFeedFilter('pending'));
 
   // 8. Search input
   if (smsSearchInput) {
@@ -833,7 +1180,54 @@ async function init() {
     });
   }
 
-  // 9. Feed Refresh & Clear
+  // 9. Teletalk SIM Balance Controls
+  if (checkBalanceBtn) {
+    checkBalanceBtn.addEventListener('click', () => {
+      triggerCheckBalance();
+    });
+  }
+
+  if (dialUssdBtn) {
+    dialUssdBtn.addEventListener('click', () => {
+      setTimeout(() => {
+        const entered = prompt('টেলিটক সিমে *152# ডায়াল করার পর স্ক্রিনে কত টাকা ব্যালেন্স দেখাচ্ছে? (Tk):', (currentSimBalance && currentSimBalance.amount) || '');
+        if (entered !== null && entered.trim()) {
+          saveBalance(entered.trim(), '*152# USSD');
+        }
+      }, 300);
+    });
+  }
+
+  if (toggleBalanceEditBtn && balanceEditBox) {
+    toggleBalanceEditBtn.addEventListener('click', () => {
+      const isHidden = balanceEditBox.style.display === 'none';
+      balanceEditBox.style.display = isHidden ? 'block' : 'none';
+      if (isHidden && balanceInputField) {
+        balanceInputField.value = (currentSimBalance && currentSimBalance.amount) || '';
+        balanceInputField.focus();
+      }
+    });
+  }
+
+  if (saveBalanceBtn && balanceInputField) {
+    saveBalanceBtn.addEventListener('click', async () => {
+      const val = balanceInputField.value.trim();
+      if (val) {
+        await saveBalance(val, 'ম্যানুয়াল আপডেট');
+        if (balanceEditBox) balanceEditBox.style.display = 'none';
+      } else {
+        showToast('টাকার পরিমাণ লিখুন');
+      }
+    });
+  }
+
+  if (cancelBalanceBtn && balanceEditBox) {
+    cancelBalanceBtn.addEventListener('click', () => {
+      balanceEditBox.style.display = 'none';
+    });
+  }
+
+  // 10. Feed Refresh, Persistent Clear, and Load Sample
   if (refreshFeedBtn) {
     refreshFeedBtn.addEventListener('click', async () => {
       refreshFeedBtn.disabled = true;
@@ -854,16 +1248,43 @@ async function init() {
 
   if (clearFeedBtn) {
     clearFeedBtn.addEventListener('click', async () => {
-      if (confirm('Clear all messages from your Live Feed?')) {
+      if (confirm('আপনি কি নিশ্চিত যে সমস্ত এসএমএস হিস্টোরি ও কিউ স্থায়ীভাবে মুছে ফেলতে চান?\n(Clear all messages and queues permanently?)')) {
         feedMessages = [];
-        await saveLocalMessages([]);
+        const now = new Date().toISOString();
+        localStorage.setItem('bd_job_sms_cleared', 'true');
+        localStorage.setItem('bd_job_sms_cleared_at', now);
+        localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify([]));
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.set({ [STORAGE_KEY_MESSAGES]: [] });
+        }
+
+        try {
+          await apiFetch('/api/sms/clear', { method: 'POST' });
+        } catch (e) {}
+
+        if (activeJobTracker) activeJobTracker.style.display = 'none';
+        if (activeTrackingInterval) clearInterval(activeTrackingInterval);
+
         renderFeed();
-        showToast('🗑️ Message history cleared');
+        if (clearStatusBanner) clearStatusBanner.style.display = 'flex';
+        showToast('🗑️ সব মেসেজ স্থায়ীভাবে মুছে ফেলা হয়েছে');
       }
     });
   }
 
-  // 10. Server Settings Config
+  if (loadSampleFeedBtn) {
+    loadSampleFeedBtn.addEventListener('click', async () => {
+      localStorage.removeItem('bd_job_sms_cleared');
+      localStorage.removeItem('bd_job_sms_cleared_at');
+      feedMessages = [...DEFAULT_INITIAL_MESSAGES];
+      await saveLocalMessages(feedMessages);
+      renderFeed();
+      if (clearStatusBanner) clearStatusBanner.style.display = 'none';
+      showToast('➕ ডেমো মেসেজ লোড করা হয়েছে');
+    });
+  }
+
+  // 11. Server Settings Config
   if (toggleServerConfigBtn && serverConfigDetails) {
     toggleServerConfigBtn.addEventListener('click', () => {
       const isHidden = serverConfigDetails.style.display === 'none';
@@ -951,6 +1372,12 @@ async function init() {
   updateCharCount();
   updateSmsLinkAndQr();
   await refreshPairingServerUrl();
+
+  // Restore cached Teletalk balance if saved previously
+  try {
+    const cachedBal = localStorage.getItem('bd_job_teletalk_balance');
+    if (cachedBal) updateBalanceUI(JSON.parse(cachedBal));
+  } catch (e) {}
 
   // Check server status
   await checkServerStatus();

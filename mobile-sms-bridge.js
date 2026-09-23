@@ -340,18 +340,144 @@ demoPassBtn.addEventListener('click', async () => {
   }
 });
 
+// Teletalk SIM Balance Elements
+const mobileBalanceAmount = document.getElementById('mobile-balance-amount');
+const mobileBalanceChecked = document.getElementById('mobile-balance-checked');
+const mobileBalanceSource = document.getElementById('mobile-balance-source');
+const mobileCheckBalanceBtn = document.getElementById('mobile-check-balance-btn');
+const mobileCheckIcon = document.getElementById('mobile-check-icon');
+const mobileCheckText = document.getElementById('mobile-check-text');
+const mobileDialUssd = document.getElementById('mobile-dial-ussd');
+
+async function triggerMobileCheckBalance() {
+  if (mobileCheckBalanceBtn) {
+    mobileCheckBalanceBtn.disabled = true;
+    mobileCheckBalanceBtn.style.opacity = '0.7';
+  }
+  if (mobileCheckIcon) {
+    mobileCheckIcon.textContent = '🔄';
+  }
+  if (mobileCheckText) {
+    mobileCheckText.textContent = 'চেক হচ্ছে...';
+  }
+  if (mobileBalanceAmount) {
+    mobileBalanceAmount.textContent = '🔄...';
+  }
+
+  try {
+    const res = await fetch('/api/sms/check-balance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: '*152#' })
+    });
+    const data = await res.json();
+    if (data.ok && data.simBalance) {
+      renderMobileBalance(data.simBalance);
+      showToast(`⚡ ব্যালেন্স: ৳ ${data.simBalance.amount}`);
+    } else {
+      showToast('ব্যালেন্স চেক করা যায়নি');
+    }
+  } catch (e) {
+    showToast('ব্যালেন্স চেক ব্যর্থ হয়েছে');
+  } finally {
+    if (mobileCheckBalanceBtn) {
+      mobileCheckBalanceBtn.disabled = false;
+      mobileCheckBalanceBtn.style.opacity = '1';
+    }
+    if (mobileCheckIcon) {
+      mobileCheckIcon.textContent = '⚡';
+    }
+    if (mobileCheckText) {
+      mobileCheckText.textContent = 'Check Balance (*152#)';
+    }
+  }
+}
+
+if (mobileCheckBalanceBtn) {
+  mobileCheckBalanceBtn.addEventListener('click', triggerMobileCheckBalance);
+}
+
+async function fetchMobileBalance() {
+  try {
+    const res = await fetch('/api/sms/balance');
+    const data = await res.json();
+    if (data.ok && data.simBalance) {
+      renderMobileBalance(data.simBalance);
+    }
+  } catch (e) {}
+}
+
+function renderMobileBalance(bal) {
+  if (!bal) return;
+  if (mobileBalanceAmount) {
+    mobileBalanceAmount.textContent = (bal.amount !== null && bal.amount !== undefined && bal.amount !== '') ? `৳ ${bal.amount}` : '৳ --';
+  }
+  if (mobileBalanceSource && bal.source) {
+    mobileBalanceSource.textContent = bal.source;
+  }
+  if (mobileBalanceChecked) {
+    if (bal.lastChecked) {
+      mobileBalanceChecked.textContent = `(${new Date(bal.lastChecked).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    } else {
+      mobileBalanceChecked.textContent = '(*152# ডায়াল করুন)';
+    }
+  }
+}
+
+async function updateMobileBalance(amt, src = 'মোবাইল থেকে আপডেট') {
+  const clean = String(amt).replace(/[^0-9.]/g, '').trim();
+  if (!clean) return;
+  try {
+    const res = await fetch('/api/sms/balance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: clean, source: src })
+    });
+    const data = await res.json();
+    if (data.ok && data.simBalance) {
+      renderMobileBalance(data.simBalance);
+      showToast(`💰 টেলিটক ব্যালেন্স: ৳ ${clean}`);
+    }
+  } catch (e) {
+    showToast('Failed to save balance');
+  }
+}
+
+if (mobileDialUssd) {
+  mobileDialUssd.addEventListener('click', () => {
+    setTimeout(() => {
+      const val = prompt('টেলিটক সিমে *152# ডায়াল করার পর প্রাপ্ত ব্যালেন্স লিখুন (টাকা):');
+      if (val !== null && val.trim()) {
+        updateMobileBalance(val.trim(), '*152# USSD');
+      }
+    }, 600);
+  });
+}
+
+if (mobileUpdateBalanceBtn) {
+  mobileUpdateBalanceBtn.addEventListener('click', () => {
+    const val = prompt('আপনার টেলিটক সিমের বর্তমান ব্যালেন্স লিখুন (টাকা):');
+    if (val !== null && val.trim()) {
+      updateMobileBalance(val.trim(), 'ম্যানুয়াল আপডেট');
+    }
+  });
+}
+
 reconnectBtn.addEventListener('click', async () => {
   showToast('Reconnecting...');
   await registerDevice();
   await checkPendingJobs();
+  await fetchMobileBalance();
 });
 
 // Initialize
 registerDevice();
 checkPendingJobs();
+fetchMobileBalance();
 
 // Polling intervals
 setInterval(checkPendingJobs, 2500);
+setInterval(fetchMobileBalance, 10000);
 setInterval(() => {
   fetch('/api/sms/heartbeat', {
     method: 'POST',

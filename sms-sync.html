@@ -30,6 +30,58 @@
       </div>
     </header>
 
+    <!-- Teletalk SIM Balance & USSD Bar -->
+    <div class="card sim-balance-card" id="sim-balance-card" style="margin-bottom: 20px; background: linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%); color: #ffffff; border: none; box-shadow: 0 4px 14px rgba(6, 95, 70, 0.22); border-radius: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="width: 50px; height: 50px; background: rgba(255, 255, 255, 0.16); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 26px; border: 1px solid rgba(255, 255, 255, 0.25);">
+            💰
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #a7f3d0;">টেলিটক সিম ব্যালেন্স (Teletalk SIM Balance)</span>
+              <span id="balance-source-tag" style="background: rgba(255, 255, 255, 0.2); padding: 1px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">*152# USSD</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 3px;">
+              <span style="font-size: 28px; font-weight: 800; font-family: monospace; letter-spacing: -0.5px;" id="teletalk-balance-val">৳ ২৫০.০০</span>
+              <span style="font-size: 12px; opacity: 0.9;" id="balance-last-updated">(সর্বশেষ চেক: ১০ মিনিট আগে)</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <button id="check-balance-btn" class="btn" type="button" style="background: #ffffff; color: #065f46; border: none; font-weight: 800; font-size: 13px; padding: 10px 18px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); transition: all 0.2s ease;">
+            <span id="check-balance-icon" style="font-size: 16px;">⚡</span>
+            <span id="check-balance-text">Check Balance (ব্যালেন্স চেক করুন)</span>
+          </button>
+          <a id="dial-ussd-btn" href="tel:*152%23" class="btn" style="background: rgba(255, 255, 255, 0.2); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.4); font-size: 12px; padding: 8px 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; font-weight: 600;">
+            <span>📞</span>
+            <span>*152# ডায়াল</span>
+          </a>
+          <button id="toggle-balance-edit-btn" class="btn" type="button" style="background: transparent; color: #a7f3d0; border: none; font-size: 11px; padding: 6px 8px; text-decoration: underline; cursor: pointer;">
+            ✏️ ম্যানুয়াল এডিট
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Update Balance Inline Form (Hidden by default) -->
+      <div id="balance-edit-box" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(255,255,255,0.3);">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 12px; font-weight: 600;">বর্তমান ব্যালেন্স লিখুন (টাকা):</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="number" id="balance-input-field" placeholder="যেমন: 250" step="0.5" style="width: 120px; padding: 6px 10px; border-radius: 6px; border: none; font-weight: 700; font-family: monospace; font-size: 14px; color: #0f172a; outline: none;" />
+            <button id="save-balance-btn" class="btn btn-primary" type="button" style="background: #10b981; border: none; color: #fff; font-weight: 700; font-size: 12px; padding: 6px 14px; border-radius: 6px;">
+              💾 সংরক্ষণ
+            </button>
+            <button id="cancel-balance-btn" class="btn btn-secondary" type="button" style="background: rgba(255,255,255,0.25); border: none; color: #fff; font-size: 12px; padding: 6px 10px; border-radius: 6px;">
+              বাতিল
+            </button>
+          </div>
+          <span style="font-size: 11px; opacity: 0.85;">টেলিটকে ১৬২২২ তে মেসেজ দিয়ে আবেদন ফি দেওয়ার পূর্বে সিমে পর্যাপ্ত টাকা থাকা নিশ্চিত করুন।</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Two-Section Layout: Composer (Left) & Inbox Feed (Right) -->
     <div class="sms-layout sms-layout--two-col">
 
@@ -124,6 +176,21 @@
 
             <!-- Status Feedback Alert -->
             <div id="custom-sms-status" style="display: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;"></div>
+
+            <!-- Active Job Status Tracker (Real-time tracking if SMS was sent from phone app) -->
+            <div id="active-job-tracker" style="display: none; border-radius: 8px; padding: 12px 14px; margin-top: 8px; border: 1px solid #fed7aa; background: #fffbeb;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span id="tracker-status-icon" style="font-size: 16px;">⏳</span>
+                  <strong id="tracker-status-title" style="font-size: 13px; color: #9a3412;">মোবাইল এ্যাপে অপেক্ষমান...</strong>
+                </div>
+                <span id="tracker-job-id" style="font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.06); color: #475569;">Job ID</span>
+              </div>
+              <div id="tracker-status-desc" style="font-size: 12px; color: #78350f; line-height: 1.4;">
+                এসএমএসটি গেটওয়ে সার্ভারে যুক্ত হয়েছে। আপনার ফোনের <strong>BD Job SMS Gateway</strong> এ্যাপে অপেক্ষা করা হচ্ছে...
+              </div>
+              <div id="tracker-details" style="display: none; margin-top: 6px; font-size: 11px; color: #166534; font-weight: 600;"></div>
+            </div>
           </div>
 
           <!-- Phone App Pairing Panel -->
@@ -211,19 +278,30 @@
               16222 Teletalk Only
             </button>
             <button id="filter-sent-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 4px 10px;">
-              Sent from Phone
+              ✅ Sent from App
+            </button>
+            <button id="filter-pending-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 4px 10px;">
+              ⏳ Pending in App
             </button>
             <button id="refresh-feed-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 4px 8px; margin-left: auto;" title="Refresh messages from server">
               🔄 Refresh
             </button>
-            <button id="clear-feed-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 4px 8px; color: #dc2626;" title="Clear message history">
-              🗑️ Clear
+            <button id="clear-feed-btn" class="btn btn-secondary btn-sm" type="button" style="font-size: 11px; padding: 4px 10px; color: #dc2626; font-weight: 700; border-color: #fca5a5; background: #fff5f5;" title="Clear message history permanently">
+              🗑️ Clear All
             </button>
           </div>
 
           <div style="position: relative;">
             <input type="text" id="sms-search-input" class="input-field" placeholder="🔍 Search SMS (by PIN, fee, org, keywords)..." style="font-size: 12px; padding: 6px 10px 6px 28px;" />
             <span style="position: absolute; left: 9px; top: 7px; font-size: 12px; pointer-events: none; opacity: 0.6;">🔍</span>
+          </div>
+
+          <!-- Empty or Cleared helper -->
+          <div id="clear-status-banner" style="display: none; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 11px; color: #64748b; display: flex; justify-content: space-between; align-items: center;">
+            <span>মেসেজ হিস্টোরি বর্তমানে খালি।</span>
+            <button id="load-sample-feed-btn" type="button" style="background: none; border: none; color: #0284c7; text-decoration: underline; cursor: pointer; font-size: 11px; font-weight: 600;">
+              ➕ টেস্ট ডেমো মেসেজ দেখুন
+            </button>
           </div>
         </div>
 
