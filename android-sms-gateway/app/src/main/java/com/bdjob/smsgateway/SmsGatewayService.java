@@ -8,11 +8,14 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.telephony.SmsManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
@@ -36,6 +39,7 @@ public class SmsGatewayService extends Service {
 
     public static final String TAG = "SmsGatewayService";
     private static final String CHANNEL_ID = "bd_job_sms_gateway_channel";
+    private static final String ALERT_CHANNEL_ID = "bd_job_ussd_alert_channel";
     private static final int NOTIFICATION_ID = 101;
 
     public static boolean isRunning = false;
@@ -127,15 +131,37 @@ public class SmsGatewayService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "BD Job SMS Gateway Service",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("Keeps the phone connected to send SMS from Chrome extension");
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) {
+                // Background service channel
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "BD Job SMS Gateway Service",
+                        NotificationManager.IMPORTANCE_LOW
+                );
+                channel.setDescription("Keeps the phone connected to send SMS from Chrome extension");
                 nm.createNotificationChannel(channel);
+
+                // High-priority Alert channel for USSD balance dialog and incoming jobs
+                NotificationChannel alertChannel = new NotificationChannel(
+                        ALERT_CHANNEL_ID,
+                        "BD Job Alert & USSD Calls",
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                alertChannel.setDescription("Important alerts and instant balance check popups");
+                alertChannel.enableVibration(true);
+                alertChannel.setVibrationPattern(new long[]{0, 350, 150, 350});
+                alertChannel.setBypassDnd(true);
+                alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+                Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                        .build();
+                alertChannel.setSound(defaultSoundUri, audioAttributes);
+
+                nm.createNotificationChannel(alertChannel);
             }
         }
     }
@@ -301,8 +327,23 @@ public class SmsGatewayService extends Service {
 
     private void showUssdNotification(String ussdCode) {
         try {
+            // 1. Wake up the phone screen so the user immediately notices it even if the phone is asleep/locked
+            try {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    PowerManager.WakeLock wakeLock = pm.newWakeLock(
+                            PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                            "BDJobSmsGateway:UssdAlertWakeLock"
+                    );
+                    wakeLock.acquire(4000); // Keep screen lit for 4 seconds
+                }
+            } catch (Exception we) {
+                Log.w(TAG, "WakeLock notice: " + we.getMessage());
+            }
+
+            // 2. Prepare Dial Intent
             Intent dialIntent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(ussdCode)));
-            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             PendingIntent pi = PendingIntent.getActivity(
                     this,
                     102,
@@ -312,17 +353,33 @@ public class SmsGatewayService extends Service {
 
             NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) {
-                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
                         .setSmallIcon(android.R.drawable.sym_action_call)
-                        .setContentTitle("📞 টেলিটক ব্যালেন্স চেক (" + ussdCode + ")")
-                        .setContentText("পিসি থেকে ব্যালেন্স রিকোয়েস্ট এসেছে। ডায়াল করতে এখানে ট্যাপ করুন।")
-                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setContentTitle("⚡ টেলিটক ব্যালেন্স চেক (" + ussdCode + ")")
+                        .setContentText("পিসি থেকে রিকোয়েস্ট এসেছে। এখনই ডায়াল করতে এখানে ট্যাপ করুন।")
+                        .setStyle(new NotificationCompat.BigTextStyle().bigText("পিসি থেকে ব্যালেন্স চেক কমান্ড পাঠানো হয়েছে। নিচে 'ডায়াল করুন' বাটনে চাপ দিয়ে এখনই *152# ডায়াল করুন এবং সঠিক ব্যালেন্স দেখে নিন।"))
+                        .setPriority(NotificationCompat.PRIORITY_MAX)
+                        .setCategory(NotificationCompat.CATEGORY_CALL)
+                        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                         .setDefaults(NotificationCompat.DEFAULT_ALL)
+                        .setVibrate(new long[]{0, 400, 200, 400, 200, 400})
+                        .setSound(soundUri)
+                        .setFullScreenIntent(pi, true)
                         .setAutoCancel(true)
                         .setContentIntent(pi)
-                        .addAction(android.R.drawable.ic_menu_call, "ডায়াল করুন", pi);
+                        .addAction(android.R.drawable.ic_menu_call, "📞 এখনই ডায়াল করুন", pi);
 
                 nm.notify(102, builder.build());
+            }
+
+            // 3. Additionally, directly bring up the Dialer screen immediately if app has permission or is foreground
+            try {
+                startActivity(dialIntent);
+                sendBroadcastLog("📲 Opened phone dialer for " + ussdCode);
+            } catch (Exception de) {
+                Log.w(TAG, "Direct activity start notice: " + de.getMessage());
             }
         } catch (Exception e) {
             Log.e(TAG, "Notification error: " + e.getMessage());

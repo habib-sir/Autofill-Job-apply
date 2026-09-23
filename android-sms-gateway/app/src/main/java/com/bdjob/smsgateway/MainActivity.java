@@ -53,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private ScrollView svLog;
     private Button btnSyncInbox;
     private Button btnTestSms;
+    private Button btnCheckBalance;
     private Button btnClearLog;
 
     private SharedPreferences prefs;
@@ -102,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
         svLog = findViewById(R.id.sv_log);
         btnSyncInbox = findViewById(R.id.btn_sync_inbox);
         btnTestSms = findViewById(R.id.btn_test_sms);
+        btnCheckBalance = findViewById(R.id.btn_check_balance);
         btnClearLog = findViewById(R.id.btn_clear_log);
 
         // Load saved values
@@ -122,6 +124,9 @@ public class MainActivity extends AppCompatActivity {
 
         btnSyncInbox.setOnClickListener(v -> syncPhoneInbox());
         btnTestSms.setOnClickListener(v -> sendTestSms());
+        if (btnCheckBalance != null) {
+            btnCheckBalance.setOnClickListener(v -> checkTeletalkBalanceManual());
+        }
         btnClearLog.setOnClickListener(v -> tvLog.setText(""));
     }
 
@@ -396,6 +401,17 @@ public class MainActivity extends AppCompatActivity {
 
         appendLog("Sending manual test ping to 16222 via SIM...");
         SmsGatewayService.sendSms(this, selectedSimSubId, "16222", "TEST_PING_BDJOB");
+    }
+
+    private void checkTeletalkBalanceManual() {
+        try {
+            appendLog("Dialing Teletalk *152# for balance check...");
+            Intent dialIntent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode("*152#")));
+            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(dialIntent);
+        } catch (Exception e) {
+            appendLog("Error launching dialer: " + e.getMessage());
+        }
     }
 
     private void appendLog(String message) {

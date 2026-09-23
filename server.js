@@ -190,6 +190,14 @@ app.post('/api/sms/check-balance', async (req, res) => {
   const code = req.body?.code || '*152#';
   const requestId = 'ussd_' + Date.now();
 
+  if (!state.pendingCommands) state.pendingCommands = [];
+  // Keep only active pending commands, cancel any stale previous USSD checks
+  state.pendingCommands.forEach(c => {
+    if (c.status === 'PENDING' && c.type === 'USSD') {
+      c.status = 'CANCELLED';
+    }
+  });
+
   const cmd = {
     id: requestId,
     type: 'USSD',
@@ -198,7 +206,6 @@ app.post('/api/sms/check-balance', async (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  if (!state.pendingCommands) state.pendingCommands = [];
   state.pendingCommands.push(cmd);
 
   // Check if paired device is active

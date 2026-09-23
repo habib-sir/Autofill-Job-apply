@@ -446,7 +446,25 @@ async function triggerCheckBalance() {
     if (!isPhoneOnline) {
       if (phoneOfflineGuideBox) phoneOfflineGuideBox.style.display = 'block';
     } else {
-      showToast(`📲 আপনার ফোন (${currentPairedDevice.name})-এ *152# রিকোয়েস্ট পাঠানো হয়েছে!`);
+      showToast(`📲 আপনার ফোন (${currentPairedDevice.name})-এ রিকোয়েস্ট গেছে। স্ক্রিনে ডায়াল করুন।`);
+
+      // Poll background status for up to 15 seconds to see if the phone sent back balance
+      let attempts = 0;
+      const pollTimer = setInterval(async () => {
+        attempts++;
+        if (attempts > 7) {
+          clearInterval(pollTimer);
+          return;
+        }
+        try {
+          const checkRes = await apiFetch('/api/sms/state');
+          if (checkRes.ok && checkRes.data && checkRes.data.simBalance && checkRes.data.simBalance.amount) {
+            updateBalanceUI(checkRes.data.simBalance);
+            if (balanceEditBox) balanceEditBox.style.display = 'none';
+            clearInterval(pollTimer);
+          }
+        } catch(e) {}
+      }, 2000);
     }
   }
 

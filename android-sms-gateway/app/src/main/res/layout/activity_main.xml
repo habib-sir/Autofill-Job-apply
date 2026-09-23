@@ -306,12 +306,28 @@
                     android:layout_height="52dp"
                     android:layout_weight="1"
                     android:text="📲 Test 16222"
-                    android:textSize="12.5sp"
+                    android:textSize="12sp"
                     android:fontFamily="sans-serif-medium"
                     android:textAllCaps="false"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="6dp"
                     android:background="@drawable/bg_btn_accent_gradient"
                     app:backgroundTint="@null"
+                    android:elevation="4dp"
+                    app:cornerRadius="14dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_check_balance"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_weight="1"
+                    android:text="⚡ *152#"
+                    android:textSize="12sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textAllCaps="false"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/chip_bg_amber"
+                    app:backgroundTint="@null"
+                    android:textColor="@color/amber_dark"
                     android:elevation="4dp"
                     app:cornerRadius="14dp" />
 
