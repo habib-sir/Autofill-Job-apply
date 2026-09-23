@@ -380,17 +380,12 @@ async function triggerMobileCheckBalance() {
     console.warn('Mobile balance check fetch error:', e);
   }
 
-  if (!finalBal) {
-    finalBal = {
-      amount: (mobileBalanceAmount && mobileBalanceAmount.textContent && mobileBalanceAmount.textContent.replace(/[^0-9.]/g, '').trim()) || '250.00',
-      currency: 'BDT',
-      lastChecked: new Date().toISOString(),
-      source: 'Teletalk USSD *152# (যাচাইকৃত)'
-    };
+  if (finalBal && finalBal.amount) {
+    renderMobileBalance(finalBal);
+    showToast(`⚡ ব্যালেন্স: ৳ ${finalBal.amount}`);
+  } else {
+    showToast('মোবাইলে *152# ডায়াল করে ব্যালেন্স চেক করুন');
   }
-
-  renderMobileBalance(finalBal);
-  showToast(`⚡ ব্যালেন্স: ৳ ${finalBal.amount}`);
 
   if (mobileCheckBalanceBtn) {
     mobileCheckBalanceBtn.disabled = false;

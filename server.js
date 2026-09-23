@@ -45,10 +45,10 @@ function loadState() {
       pendingJobs: [],
       pendingCommands: [],
       simBalance: {
-        amount: "250.00",
+        amount: null,
         currency: 'BDT',
-        lastChecked: new Date().toISOString(),
-        source: 'Teletalk USSD *152#'
+        lastChecked: null,
+        source: 'none'
       },
       messages: []
     };
@@ -60,10 +60,10 @@ function loadState() {
 
   if (!loaded.simBalance) {
     loaded.simBalance = {
-      amount: "250.00",
+      amount: null,
       currency: 'BDT',
-      lastChecked: new Date().toISOString(),
-      source: 'Teletalk USSD *152#'
+      lastChecked: null,
+      source: 'none'
     };
   }
 
@@ -227,26 +227,20 @@ app.post('/api/sms/check-balance', async (req, res) => {
       source: 'Teletalk USSD ' + code + ' (মোবাইল ফোন)'
     };
     saveState();
-    return res.json({ ok: true, simBalance: state.simBalance, livePhone: true });
+    return res.json({ ok: true, simBalance: state.simBalance, livePhone: true, hasRealBalance: true });
   }
 
-  // Ensure balance is updated with a verified timestamp and fresh checked status
-  const currentAmt = state.simBalance && state.simBalance.amount ? parseFloat(state.simBalance.amount) : 250.00;
-  const formattedAmt = isNaN(currentAmt) ? "250.00" : currentAmt.toFixed(2);
-
-  state.simBalance = {
-    amount: formattedAmt,
-    currency: 'BDT',
-    lastChecked: new Date().toISOString(),
-    source: isOnline ? 'Teletalk USSD *152# (ফোন সিঙ্ক)' : 'Teletalk USSD *152# (যাচাইকৃত)'
-  };
   saveState();
 
   res.json({
     ok: true,
     simBalance: state.simBalance,
+    hasRealBalance: !!(state.simBalance && state.simBalance.amount),
     commandId: requestId,
-    message: 'টেলিটক সিম ব্যালেন্স *152# সফলভাবে চেক করা হয়েছে'
+    isOnline: !!isOnline,
+    message: isOnline
+      ? 'ফোনে ব্যালেন্স চেক রিকোয়েস্ট পাঠানো হয়েছে।'
+      : 'টেলিটক সিমে *152# ডায়াল করে আসল ব্যালেন্স চেক করুন।'
   });
 });
 

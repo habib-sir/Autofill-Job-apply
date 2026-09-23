@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -298,7 +299,40 @@ public class SmsGatewayService extends Service {
         }
     }
 
+    private void showUssdNotification(String ussdCode) {
+        try {
+            Intent dialIntent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(ussdCode)));
+            dialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            PendingIntent pi = PendingIntent.getActivity(
+                    this,
+                    102,
+                    dialIntent,
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_UPDATE_CURRENT
+            );
+
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle("📞 টেলিটক ব্যালেন্স চেক (" + ussdCode + ")")
+                        .setContentText("পিসি থেকে ব্যালেন্স রিকোয়েস্ট এসেছে। ডায়াল করতে এখানে ট্যাপ করুন।")
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setDefaults(NotificationCompat.DEFAULT_ALL)
+                        .setAutoCancel(true)
+                        .setContentIntent(pi)
+                        .addAction(android.R.drawable.ic_menu_call, "ডায়াল করুন", pi);
+
+                nm.notify(102, builder.build());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Notification error: " + e.getMessage());
+        }
+    }
+
     private void executeUssdRequest(String cmdId, String ussdCode) {
+        // Show high-priority notification with dial button so user sees it on phone screen
+        showUssdNotification(ussdCode);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
@@ -311,13 +345,13 @@ public class SmsGatewayService extends Service {
                         public void onReceiveUssdResponse(TelephonyManager telephonyManager, String request, CharSequence returnMessage) {
                             String msg = returnMessage != null ? returnMessage.toString() : "";
                             sendBroadcastLog("✅ USSD Response received: " + msg);
-                            reportUssdResult(cmdId, msg, ussdCode);
+                            reportUssdResult(cmdId, msg, ussdCode, "COMPLETED", null);
                         }
 
                         @Override
                         public void onReceiveUssdResponseFailed(TelephonyManager telephonyManager, String request, int failureCode) {
-                            sendBroadcastLog("⚠️ USSD failed code " + failureCode + ". Fallback to verified carrier record.");
-                            reportUssdResult(cmdId, "Balance: Tk 250.00", ussdCode);
+                            sendBroadcastLog("⚠️ USSD auto-dial code " + failureCode + ". Tap the notification on your phone to dial " + ussdCode + ".");
+                            reportUssdResult(cmdId, null, ussdCode, "FAILED", "USSD requires user dial");
                         }
                     }, new Handler(Looper.getMainLooper()));
                     return;
@@ -329,18 +363,19 @@ public class SmsGatewayService extends Service {
             }
         }
 
-        // Fallback for pre-Oreo or when direct USSD callback isn't available
-        reportUssdResult(cmdId, "Balance: Tk 250.00", ussdCode);
+        reportUssdResult(cmdId, null, ussdCode, "FAILED", "Tap notification on phone to dial");
     }
 
-    private void reportUssdResult(String requestId, String rawResponse, String code) {
+    private void reportUssdResult(String requestId, String rawResponse, String code, String status, String error) {
         executor.execute(() -> {
             try {
                 String cleanUrl = serverUrl.replaceAll("/+$", "") + "/api/sms/ussd-response";
                 JSONObject body = new JSONObject();
                 body.put("requestId", requestId);
-                body.put("rawResponse", rawResponse);
+                if (rawResponse != null) body.put("rawResponse", rawResponse);
                 body.put("code", code);
+                body.put("status", status != null ? status : "COMPLETED");
+                if (error != null) body.put("error", error);
                 makeHttpRequest(cleanUrl, "POST", body.toString());
             } catch (Exception e) {
                 Log.e(TAG, "Report USSD error", e);

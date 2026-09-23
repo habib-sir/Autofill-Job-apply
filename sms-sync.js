@@ -380,47 +380,60 @@ async function triggerCheckBalance() {
       body: JSON.stringify({ code: '*152#' })
     });
 
-    if (res.ok && res.data && res.data.simBalance) {
-      finalBalance = res.data.simBalance;
+    if (res.ok && res.data) {
+      if (res.data.simBalance && res.data.simBalance.amount) {
+        finalBalance = res.data.simBalance;
+        hasRealBalance = true;
+      }
     }
   } catch (err) {
     console.warn('Backend balance check issue:', err);
   }
 
-  // Resilient fallback: If server did not respond or network is disconnected,
-  // use existing balance with updated timestamp so user is never blocked
-  if (!finalBalance) {
+  const isPhoneOnline = currentPairedDevice && currentPairedDevice.isOnline;
+
+  if (hasRealBalance && finalBalance) {
+    updateBalanceUI(finalBalance);
+    showToast(`⚡ টেলিটক সিম ব্যালেন্স: ৳ ${finalBalance.amount}`);
+  } else {
+    // Check if user previously saved a real balance
     const savedAmount = (currentSimBalance && currentSimBalance.amount) ||
                         (() => {
                           try {
                             const cached = JSON.parse(localStorage.getItem('bd_job_teletalk_balance') || '{}');
-                            return cached.amount;
+                            return cached.amount || null;
                           } catch(e) { return null; }
-                        })() || '250.00';
+                        })();
 
-    finalBalance = {
-      amount: savedAmount,
-      currency: 'BDT',
-      lastChecked: new Date().toISOString(),
-      source: 'Teletalk USSD *152# (যাচাইকৃত)'
-    };
+    if (savedAmount) {
+      finalBalance = {
+        amount: savedAmount,
+        currency: 'BDT',
+        lastChecked: new Date().toISOString(),
+        source: (currentSimBalance && currentSimBalance.source) || 'সংরক্ষিত ব্যালেন্স'
+      };
+      updateBalanceUI(finalBalance);
+      showToast(`⚡ বর্তমান সংরক্ষিত ব্যালেন্স: ৳ ${savedAmount}`);
+    } else {
+      if (teletalkBalanceVal) teletalkBalanceVal.textContent = 'ব্যালেন্স দিন';
+      if (balanceLastUpdated) balanceLastUpdated.textContent = '(*152# ডায়াল করে চেক করুন)';
+    }
+
+    if (isPhoneOnline) {
+      showToast(`📲 আপনার ফোন (${currentPairedDevice.name})-এ রিকোয়েস্ট গেছে। স্ক্রিনের সঠিক ব্যালেন্সটি লিখুন।`);
+    } else {
+      showToast('টেলিটক সিমে *152# ডায়াল করে প্রাপ্ত সঠিক ব্যালেন্সটি লিখুন।');
+    }
+
+    // Open inline balance editor so user can immediately save what they saw on their Infinix screen
+    if (balanceEditBox) {
+      balanceEditBox.style.display = 'block';
+      if (balanceInputField) {
+        balanceInputField.value = savedAmount || '';
+        balanceInputField.focus();
+      }
+    }
   }
-
-  updateBalanceUI(finalBalance);
-  try {
-    localStorage.setItem('bd_job_teletalk_balance', JSON.stringify(finalBalance));
-  } catch (e) {}
-
-  // Pulse visual effect on balance
-  if (teletalkBalanceVal) {
-    teletalkBalanceVal.style.transition = 'transform 0.25s ease';
-    teletalkBalanceVal.style.transform = 'scale(1.12)';
-    setTimeout(() => {
-      if (teletalkBalanceVal) teletalkBalanceVal.style.transform = 'scale(1)';
-    }, 300);
-  }
-
-  showToast(`⚡ টেলিটক সিম ব্যালেন্স: ৳ ${finalBalance.amount}`);
 
   // Check device environment
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);

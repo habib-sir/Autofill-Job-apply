@@ -3,10 +3,10 @@
   "pairingToken": "BT-XYXJQV",
   "pendingJobs": [],
   "simBalance": {
-    "amount": "245.50",
+    "amount": null,
     "currency": "BDT",
-    "lastChecked": "2026-09-23T11:23:42.286Z",
-    "source": "Teletalk USSD *152# (যাচাইকৃত)"
+    "lastChecked": null,
+    "source": "none"
   },
   "messages": [],
   "pendingCommands": [
