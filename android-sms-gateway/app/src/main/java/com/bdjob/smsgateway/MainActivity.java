@@ -37,6 +37,7 @@ import rikka.shizuku.Shizuku;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -568,13 +569,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void executeShizukuCommand(String command) throws Exception {
-        Process process = Shizuku.newProcess(new String[]{"sh", "-c", command}, null, null);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            Log.d("ShizukuCmd", line);
+        Method newProcessMethod = Shizuku.class.getDeclaredMethod("newProcess", String[].class, String[].class, String.class);
+        newProcessMethod.setAccessible(true);
+        Process process = (Process) newProcessMethod.invoke(null, new Object[]{new String[]{"sh", "-c", command}, null, null});
+        if (process != null) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                Log.d("ShizukuCmd", line);
+            }
+            process.waitFor();
         }
-        process.waitFor();
     }
 
     private void showManualShizukuGuide(String intro) {
