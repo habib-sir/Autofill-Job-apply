@@ -54,7 +54,7 @@ Chrome doesn't allow unlisted extensions to auto-update outside the Web Store, s
 
 1. **Download this repository**
    ```bash
-   git clone https://github.com/habib-sir/Autofill-Job-apply.git
+   git clone https://github.com/<your-username>/Autofill-Job-apply.git
    ```
    Or click **Code → Download ZIP** on GitHub and extract it.
 

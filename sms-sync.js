@@ -18,13 +18,13 @@ const DEFAULT_INITIAL_MESSAGES = [
     direction: 'incoming',
     sender: '16222',
     recipient: 'My Teletalk Phone',
-    body: "Applicant's Name: MD HABIBUR RAHMAN, Tk. 220 will be charged as application fee. Your PIN is 87654321. To pay fee type: BPSC YES 87654321 and send to 16222",
+    body: "Applicant's Name: MD ABDUR RAHIM, Tk. 220 will be charged as application fee. Your PIN is 87654321. To pay fee type: BPSC YES 87654321 and send to 16222",
     parsed: {
       isTeletalk: true,
       type: 'PIN_NOTIFICATION',
       pin: '87654321',
       fee: '220',
-      applicantName: 'MD HABIBUR RAHMAN',
+      applicantName: 'MD ABDUR RAHIM',
       userId: null,
       password: null,
       suggestedReply: 'BPSC YES 87654321'

@@ -464,7 +464,7 @@ app.post('/api/sms/simulate-reply', (req, res) => {
   const { type, orgCode, userId, applicantName, pin } = req.body;
   const org = orgCode || 'BPSC';
   const uid = userId || '7A8B9C';
-  const name = applicantName || 'MD HABIBUR RAHMAN';
+  const name = applicantName || 'MD ABDUR RAHIM';
   const genPin = pin || Math.floor(10000000 + Math.random() * 90000000).toString();
 
   let body = '';
